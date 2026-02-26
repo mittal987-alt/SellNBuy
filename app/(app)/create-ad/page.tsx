@@ -11,6 +11,7 @@ export default function CreateAdPage() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [category, setCategory] = useState("");
   const [yearsUsed, setYearsUsed] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,7 @@ export default function CreateAdPage() {
   /* ---------------- SUBMIT AD ---------------- */
 
   const handleSubmit = async () => {
-    if (!title || !price || !location) {
+    if (!title || !price || !location || !category) {
       alert("Please fill required fields");
       return;
     }
@@ -55,6 +56,7 @@ export default function CreateAdPage() {
         price: Number(price),
         description,
         location,
+        category,
         yearsUsed: Number(yearsUsed),
         images, // ✅ VERY IMPORTANT
       });
@@ -96,6 +98,20 @@ export default function CreateAdPage() {
           onChange={(e) => setLocation(e.target.value)}
           className="w-full border rounded-lg px-3 py-2"
         />
+
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2"
+        >
+          <option value="">Select category</option>
+          <option value="Cars">Cars</option>
+          <option value="Property">Property</option>
+          <option value="Mobiles">Mobiles</option>
+          <option value="Fashion">Fashion</option>
+          <option value="Jobs">Jobs</option>
+          <option value="Furniture">Furniture</option>
+        </select>
 
         <input
           placeholder="Years Used"

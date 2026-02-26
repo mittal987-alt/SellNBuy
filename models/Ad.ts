@@ -11,6 +11,10 @@ const AdSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    category: {
+      type: String,
+      required: true, 
+    },
     description: {
       type: String,
       default: "",
@@ -28,6 +32,11 @@ const AdSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    savedBy: [
+  {
+    type: String, // user id
+  },
+],
     images :{
         type: [String], // array of image URLs
         default: []

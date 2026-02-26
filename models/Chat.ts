@@ -2,12 +2,16 @@ import mongoose from "mongoose";
 
 const ChatSchema = new mongoose.Schema(
   {
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    messages: [
+    ad: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Ad",
+      required: true,
+    },
+    participants: [
       {
-        sender: mongoose.Schema.Types.ObjectId,
-        text: String,
-        createdAt: { type: Date, default: Date.now },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
       },
     ],
   },

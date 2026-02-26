@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -28,27 +27,33 @@ type Ad = {
 
 export default function SellerDashboard() {
   const [ads, setAds] = useState<Ad[]>([]);
+  const [chatCount, setChatCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  /* ---------------- FETCH SELLER ADS ---------------- */
+  /* ---------------- FETCH ADS + CHATS ---------------- */
 
   useEffect(() => {
-    const fetchAds = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get("/ads/my");
-        setAds(res.data);
+        const [adsRes, chatsRes] = await Promise.all([
+          api.get("/ads/my"),
+          api.get("/chats"),
+        ]);
+
+        setAds(adsRes.data);
+        setChatCount(chatsRes.data.length);
       } catch (err) {
-        console.error("Failed to load ads", err);
+        console.error("Failed to load dashboard data", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAds();
+    fetchData();
   }, []);
 
-  /* ---------------- DELETE ---------------- */
+  /* ---------------- DELETE AD ---------------- */
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this ad?")) return;
@@ -56,7 +61,6 @@ export default function SellerDashboard() {
     try {
       setDeletingId(id);
       await api.delete(`/ads/${id}`);
-
       setAds((prev) => prev.filter((ad) => ad._id !== id));
     } catch (err) {
       console.error("Delete failed", err);
@@ -102,7 +106,7 @@ export default function SellerDashboard() {
             <StatCard label="Active Ads" value={ads.length.toString()} />
             <StatCard label="Sold Items" value="0" />
             <StatCard label="Total Views" value="0" />
-            <StatCard label="Messages" value="0" />
+            <StatCard label="Messages" value={chatCount.toString()} />
           </div>
 
           {/* LISTINGS */}
@@ -135,7 +139,7 @@ export default function SellerDashboard() {
   );
 }
 
-/* ---------------- COMPONENTS ---------------- */
+/* ---------------- STAT CARD ---------------- */
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -145,6 +149,8 @@ function StatCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+/* ---------------- LISTING CARD ---------------- */
 
 function ListingCard({
   ad,
@@ -185,7 +191,7 @@ function ListingCard({
         <button
           disabled={deleting}
           onClick={(e) => {
-            e.stopPropagation(); // 🔥 important
+            e.stopPropagation();
             onDelete(ad._id);
           }}
           className="text-red-500 disabled:opacity-50"
@@ -196,4 +202,3 @@ function ListingCard({
     </div>
   );
 }
-

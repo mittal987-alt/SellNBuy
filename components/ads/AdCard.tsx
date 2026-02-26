@@ -7,6 +7,10 @@ type Ad = {
   location: string;
   image: string;
 };
+const handleSave = async () => {
+  await api.post(`/ads/saved/${ad._id}`);
+};
+
 
 export default function AdCard({ ad }: { ad: Ad }) {
   return (
@@ -45,6 +49,13 @@ export default function AdCard({ ad }: { ad: Ad }) {
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {ad.location}
         </p>
+        <button
+  onClick={handleSave}
+  className="text-red-500 text-sm"
+>
+  ❤️ Save
+</button>
+
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ export default function Sidebar({ items }: { items: SidebarItemType[] }) {
               isActive &&
                 "border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20"
             )}
+            
           >
             <span className="text-xl">{item.icon}</span>
             {item.title}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 🔐 Block logged-in users from register page
+  // 🔐 Block logged-in users
   useEffect(() => {
     if (authChecked && user) {
       router.replace("/dashboard/buyer");
@@ -37,8 +38,6 @@ export default function RegisterPage() {
       });
 
       setUser(res.data);
-
-      // 🟢 New users always start as buyer
       router.replace("/dashboard/buyer");
     } catch (err: any) {
       setError(err.response?.data?.message || "Registration failed");
@@ -50,51 +49,98 @@ export default function RegisterPage() {
   if (!authChecked) return null;
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-center">
-        Create Account
-      </h1>
+      <div className="
+      min-h-screen 
+      w-full 
+      flex 
+      items-center 
+      justify-center 
+      bg-gradient-to-br 
+      from-[#0f172a] 
+      via-[#1e293b] 
+      to-black
+    ">
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="
+                 w-full max-w-md 
+                 p-8 rounded-2xl 
+                 bg-white/10 
+                 backdrop-blur-md 
+                 border border-white/20
+                 shadow-xl
+               " >
 
-      {error && (
-        <p className="text-sm text-red-500 text-center">
-          {error}
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-extrabold text-white">
+            OLX
+          </h1>
+          <p className="text-sm text-gray-300 mt-1">
+            Create your account
+          </p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <motion.p
+            initial={{ x: -10 }}
+            animate={{ x: 0 }}
+            className="text-sm text-red-400 text-center mb-3"
+          >
+            {error}
+          </motion.p>
+        )}
+
+        {/* Inputs */}
+        <div className="space-y-4">
+          <Input
+            placeholder="Full Name"
+            className="bg-white/90"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <Input
+            placeholder="Email address"
+            type="email"
+            className="bg-white/90"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <Input
+            placeholder="Password"
+            type="password"
+            className="bg-white/90"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+
+        {/* Button */}
+        <Button
+          onClick={handleRegister}
+          disabled={loading}
+          className="w-full mt-6 bg-white text-black hover:bg-gray-200"
+        >
+          {loading ? "Creating..." : "Register"}
+        </Button>
+
+        {/* Footer */}
+        <p className="mt-6 text-center text-sm text-gray-400">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="text-white font-medium hover:underline"
+          >
+            Login
+          </Link>
         </p>
-      )}
 
-      <Input
-        placeholder="Full Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-
-      <Input
-        placeholder="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-
-      <Input
-        placeholder="Password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-
-      <Button
-        className="w-full"
-        onClick={handleRegister}
-        disabled={loading}
-      >
-        {loading ? "Creating..." : "Register"}
-      </Button>
-
-      <p className="text-center text-sm text-gray-500">
-        Already have an account?{" "}
-        <Link href="/login" className="text-blue-600">
-          Login
-        </Link>
-      </p>
+      </motion.div>
     </div>
   );
 }

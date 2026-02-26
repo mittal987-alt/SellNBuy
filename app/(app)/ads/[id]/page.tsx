@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 
 type Ad = {
@@ -12,13 +12,21 @@ type Ad = {
   location: string;
   yearsUsed: number;
   images: string[];
+  user: string;
+  savedBy?: string[];
 };
 
 export default function AdDetailsPage() {
   const { id } = useParams();
+  const router = useRouter();
+
   const [ad, setAd] = useState<Ad | null>(null);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  /* ================= FETCH AD ================= */
 
   useEffect(() => {
     const fetchAd = async () => {
@@ -34,6 +42,41 @@ export default function AdDetailsPage() {
 
     if (id) fetchAd();
   }, [id]);
+
+  /* ================= SAVE AD ================= */
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const res = await api.post(`/ads/saved/${id}`);
+      setSaved(res.data.saved);
+    } catch (err) {
+      console.error("Save failed", err);
+      alert("Failed to save ad");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ================= START CHAT ================= */
+
+  const handleStartChat = async () => {
+    try {
+      const res = await api.post(`/chats/start/${ad?._id}`);
+      router.push(`/chats/${res.data.chatId}`);
+    } catch (err: any) {
+      console.error("Chat error", err);
+
+      if (err?.response?.status === 401)
+        alert("Please login first");
+      else if (err?.response?.status === 400)
+        alert("You cannot chat with your own ad");
+      else
+        alert("Unable to start chat");
+    }
+  };
+
+  /* ================= IMAGE NAV ================= */
 
   if (loading) return <p className="p-6">Loading...</p>;
   if (!ad) return <p className="p-6">Ad not found</p>;
@@ -51,12 +94,13 @@ export default function AdDetailsPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-2 gap-10">
 
-      {/* IMAGE SECTION */}
+      {/* ================= IMAGE SECTION ================= */}
       <div>
-        <div className="relative h-[450px] w-[] rounded-2xl overflow-hidden bg-gray-100">
+        <div className="relative h-[450px] rounded-2xl overflow-hidden bg-gray-100">
           <img
             src={ad.images?.[current] || "/placeholder.png"}
             className="w-full h-full object-cover"
+            alt="ad"
           />
 
           {ad.images.length > 1 && (
@@ -78,7 +122,7 @@ export default function AdDetailsPage() {
         </div>
 
         {/* THUMBNAILS */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-3 mt-4 flex-wrap">
           {ad.images.map((img, index) => (
             <img
               key={index}
@@ -92,27 +136,53 @@ export default function AdDetailsPage() {
         </div>
       </div>
 
-      {/* DETAILS SECTION */}
-      <div className="space-y-4">
+      {/* ================= DETAILS SECTION ================= */}
+      <div className="space-y-6">
+
         <h1 className="text-3xl font-bold">{ad.title}</h1>
 
-        <p className="text-2xl font-bold text-green-600">
+        <p className="text-3xl font-bold text-green-600">
           ₹ {ad.price}
         </p>
 
-        <p className="text-gray-600">
-          📍 {ad.location}
-        </p>
+        <div className="space-y-2 text-gray-600">
+          <p>📍 {ad.location}</p>
+          <p>🕒 {ad.yearsUsed} years used</p>
+        </div>
 
-        <p className="text-gray-600">
-          🕒 {ad.yearsUsed} years used
-        </p>
+        {/* SAVE BUTTON */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full border rounded-lg py-3 font-medium hover:bg-gray-100 transition"
+        >
+          {saved ? "❤️ Saved" : "🤍 Save Ad"}
+        </button>
+
+        {/* CONTACT BUTTON */}
+        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition">
+          📞 Contact Seller
+        </button>
+
+        {/* CHAT BUTTON */}
+        <button
+          onClick={handleStartChat}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition"
+        >
+          💬 Start Chat
+        </button>
 
         <hr />
 
-        <p className="text-gray-700">
-          {ad.description}
-        </p>
+        <div>
+          <h2 className="text-lg font-semibold mb-2">
+            Description
+          </h2>
+          <p className="text-gray-700 leading-relaxed">
+            {ad.description}
+          </p>
+        </div>
+
       </div>
     </div>
   );
