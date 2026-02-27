@@ -10,6 +10,10 @@ type Ad = {
   price: number;
   location: string;
   images: string[];
+  user:{
+    name: string;
+    role: "buyer"|"seller";9
+  }
 };
 
 type Props = {
