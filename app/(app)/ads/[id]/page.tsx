@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import api from "@/lib/api";
 
 type Ad = {
@@ -64,12 +65,13 @@ export default function AdDetailsPage() {
     try {
       const res = await api.post(`/chats/start/${ad?._id}`);
       router.push(`/chats/${res.data.chatId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Chat error", err);
+      const error = err as { response?: { status?: number } };
 
-      if (err?.response?.status === 401)
+      if (error?.response?.status === 401)
         alert("Please login first");
-      else if (err?.response?.status === 400)
+      else if (error?.response?.status === 400)
         alert("You cannot chat with your own ad");
       else
         alert("Unable to start chat");
@@ -97,10 +99,11 @@ export default function AdDetailsPage() {
       {/* ================= IMAGE SECTION ================= */}
       <div>
         <div className="relative h-[450px] rounded-2xl overflow-hidden bg-gray-100">
-          <img
-            src={ad.images?.[current] || "/placeholder.png"}
-            className="w-full h-full object-cover"
+          <Image
+            src={ad.images?.[current] || "https://via.placeholder.com/800x450?text=No+Image"}
             alt="ad"
+            fill
+            className="object-cover"
           />
 
           {ad.images.length > 1 && (
@@ -124,11 +127,14 @@ export default function AdDetailsPage() {
         {/* THUMBNAILS */}
         <div className="flex gap-3 mt-4 flex-wrap">
           {ad.images.map((img, index) => (
-            <img
+            <Image
               key={index}
-              src={img}
+              src={img || "https://via.placeholder.com/80x80?text=No+Img"}
+              alt={`ad thumbnail ${index + 1}`}
+              width={80}
+              height={80}
               onClick={() => setCurrent(index)}
-              className={`h-20 w-20 object-cover rounded cursor-pointer border ${
+              className={`object-cover rounded cursor-pointer border ${
                 current === index ? "border-blue-600" : ""
               }`}
             />

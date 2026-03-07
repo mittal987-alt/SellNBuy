@@ -7,6 +7,12 @@ const AdSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    savedBy: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+],
     price: {
       type: Number,
       required: true,

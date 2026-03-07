@@ -1,4 +1,4 @@
-import { NextResponse ,NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromToken } from "@/lib/auth";
 import Ad from "@/models/Ad";
@@ -8,81 +8,74 @@ export async function GET() {
     await connectDB();
 
     const user = await getUserFromToken();
+
     if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ Find ads where current user saved them
-    const ads = await Ad.find({
-      savedBy: user.id,
-    }).sort({ createdAt: -1 });
+    const userId = user.id.toString();
 
-    return NextResponse.json(ads);
+    const savedAds = await Ad.find({ savedBy: userId });
+
+    return NextResponse.json(savedAds);
 
   } catch (error) {
-    console.error("SAVED FETCH ERROR:", error);
+    console.error("GET SAVED ADS ERROR:", error);
+
     return NextResponse.json(
-      { message: "Failed to fetch saved ads" },
+      { message: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
+
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     await connectDB();
 
     const user = await getUserFromToken();
+
     if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
+    const adId = params.id;
 
-    const ad = await Ad.findById(id);
+    const ad = await Ad.findById(adId);
+
     if (!ad) {
-      return NextResponse.json(
-        { message: "Ad not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Ad not found" }, { status: 404 });
     }
 
-    // initialize if not exists
-    if (!ad.savedBy) {
-      ad.savedBy = [];
-    }
+    const userId = user.id.toString();
 
-    const alreadySaved = ad.savedBy.includes(user.id);
+    const alreadySaved =
+      ad.savedBy?.some((uid: any) => uid.toString() === userId) || false;
 
     if (alreadySaved) {
-      // ❌ Unsave
-      ad.savedBy = ad.savedBy.filter(
-        (uid: string) => uid !== user.id
+      await Ad.updateOne(
+        { _id: adId },
+        { $pull: { savedBy: userId } }
       );
     } else {
-      // ✅ Save
-      ad.savedBy.push(user.id);
+      await Ad.updateOne(
+        { _id: adId },
+        { $addToSet: { savedBy: userId } }
+      );
     }
 
-    await ad.save();
-
     return NextResponse.json({
-      message: alreadySaved ? "Unsaved" : "Saved",
       saved: !alreadySaved,
     });
 
   } catch (error) {
     console.error("SAVE ERROR:", error);
+
     return NextResponse.json(
-      { message: "Save failed" },
+      { message: "Internal Server Error" },
       { status: 500 }
     );
   }

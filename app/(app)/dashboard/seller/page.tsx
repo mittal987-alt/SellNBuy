@@ -1,19 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Sidebar, { SidebarItemType } from "@/components/layout/sidebar";
 import Link from "next/link";
 import api from "@/lib/api";
 
 /* ---------------- SIDEBAR ---------------- */
-
-const sellerSidebar: SidebarItemType[] = [
-  { title: "My Listings", href: "/dashboard/seller", icon: "📦" },
-  { title: "Post New Ad", href: "/create-ad", icon: "➕" },
-  { title: "Messages", href: "/chats", icon: "💬" },
-  { title: "Analytics", href: "/dashboard/seller/analytics", icon: "📊" },
-  { title: "Settings", href: "/profile", icon: "⚙️" },
-];
 
 /* ---------------- TYPES ---------------- */
 
@@ -77,7 +68,7 @@ export default function SellerDashboard() {
         {/* SIDEBAR */}
         <aside className="hidden md:block md:col-span-3 lg:col-span-2">
           <div className="sticky top-24">
-            <Sidebar items={sellerSidebar} />
+           
           </div>
         </aside>
 

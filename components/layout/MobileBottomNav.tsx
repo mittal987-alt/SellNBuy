@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import DynamicIcon from "@/components/common/DynamicIcon";
 
 const navItems = [
-  { title: "Browse", href: "/ads", icon: "🛒" },
-  { title: "Saved", href: "/saved", icon: "❤️" },
-  { title: "Chats", href: "/chats", icon: "💬" },
-  { title: "Profile", href: "/profile", icon: "👤" },
+  { title: "Browse", href: "/ads", icon: "FiShoppingCart" },
+  { title: "Saved", href: "/saved", icon: "FiHeart" },
+  { title: "Chats", href: "/chats", icon: "FiMessageCircle" },
+  { title: "Profile", href: "/profile", icon: "FiUser" },
 ];
 
 export default function MobileBottomNav() {
@@ -37,7 +38,9 @@ export default function MobileBottomNav() {
                   : "text-gray-500"
               )}
             >
-              <span className="text-lg">{item.icon}</span>
+              <span className="text-lg">
+                <DynamicIcon iconName={item.icon} />
+              </span>
               {item.title}
             </Link>
           );

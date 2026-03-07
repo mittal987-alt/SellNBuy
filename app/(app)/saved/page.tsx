@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
+import Image from "next/image";
 
 type Ad = {
   _id: string;
@@ -45,10 +46,12 @@ export default function SavedPage() {
             <Link key={ad._id} href={`/ads/${ad._id}`}>
               <div className="rounded-xl border p-4 bg-white hover:shadow-md transition">
                 <div className="h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                  <img
-                    src={ad.images?.[0]}
+                  <Image
+                    src={ad.images?.[0] || "/placeholder.png"}
                     className="w-full h-full object-cover"
                     alt="ad"
+                    width={200}
+                    height={128}
                   />
                 </div>
 

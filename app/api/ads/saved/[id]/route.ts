@@ -24,12 +24,14 @@ export async function POST(
   const alreadySaved = ad.savedBy.includes(user.id);
 
   if (alreadySaved) {
-    ad.savedBy = ad.savedBy.filter((uid: string) => uid !== user.id);
+    await Ad.findByIdAndUpdate(id, {
+      $pull: { savedBy: user.id },
+    });
   } else {
-    ad.savedBy.push(user.id);
+    await Ad.findByIdAndUpdate(id, {
+      $addToSet: { savedBy: user.id },
+    });
   }
-
-  await ad.save();
 
   return NextResponse.json({ saved: !alreadySaved });
 }
