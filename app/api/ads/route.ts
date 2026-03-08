@@ -9,7 +9,7 @@ import Ad from "@/models/Ad";
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 /* =========================================================
-   GET ALL ADS (WITH FILTERS + PAGINATION)
+   GET ADS (FILTERS + NEARBY + PAGINATION)
 ========================================================= */
 
 export async function GET(req: NextRequest) {
@@ -24,29 +24,57 @@ export async function GET(req: NextRequest) {
     const max = searchParams.get("max");
     const sort = searchParams.get("sort");
     const category = searchParams.get("category");
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    const radius = searchParams.get("radius");
 
     const page = Number(searchParams.get("page")) || 1;
     const limit = 8;
 
     const filter: any = {};
 
+    /* SEARCH */
+
     if (search) {
       filter.title = { $regex: search, $options: "i" };
     }
 
+    /* CITY */
+
     if (city) {
-      filter.location = { $regex: city, $options: "i" };
+      filter.locationName = { $regex: city, $options: "i" };
     }
+
+    /* CATEGORY */
 
     if (category) {
       filter.category = category;
     }
 
+    /* PRICE */
+
     if (min || max) {
       filter.price = {};
+
       if (min) filter.price.$gte = Number(min);
       if (max) filter.price.$lte = Number(max);
     }
+
+    /* NEARBY SEARCH */
+
+    if (lat && lng && radius) {
+      filter.location = {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [Number(lng), Number(lat)],
+          },
+          $maxDistance: Number(radius),
+        },
+      };
+    }
+
+    /* SORT */
 
     let query = Ad.find(filter);
 
@@ -58,7 +86,19 @@ export async function GET(req: NextRequest) {
       query = query.sort({ createdAt: -1 });
     }
 
-    const total = await Ad.countDocuments(filter);
+    /* COUNT */
+
+    let total;
+
+    if (lat && lng && radius) {
+      const countFilter = { ...filter };
+      delete countFilter.location;
+      total = await Ad.countDocuments(countFilter);
+    } else {
+      total = await Ad.countDocuments(filter);
+    }
+
+    /* FETCH */
 
     const ads = await query
       .skip((page - 1) * limit)
@@ -74,6 +114,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error("GET ADS ERROR:", error);
+
     return NextResponse.json(
       { message: "Failed to fetch ads" },
       { status: 500 }
@@ -82,8 +123,9 @@ export async function GET(req: NextRequest) {
 }
 
 /* =========================================================
-   CREATE AD (FIXED FOR FORMDATA)
+   CREATE AD
 ========================================================= */
+
 export async function POST(req: Request) {
   try {
     await connectDB();
@@ -94,54 +136,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    let user: any;
+    const user: any = jwt.verify(token, JWT_SECRET);
 
-    try {
-      user = jwt.verify(token, JWT_SECRET);
-      console.log("JWT USER:", user);   // 👈 ADD THIS
-    } catch (err) {
-      console.log("JWT ERROR:", err);
-      return NextResponse.json({ message: "Invalid token" }, { status: 401 });
-    }
+    const body = await req.json();
 
-    // Accept either JSON (from client) or FormData (e.g., multipart)
-    const contentType = req.headers.get("content-type") || "";
-    let payload: any = {};
-
-    if (contentType.includes("application/json")) {
-      payload = await req.json();
-    } else {
-      const formData = await req.formData();
-      // build payload from FormData
-      payload = {
-        title: formData.get("title"),
-        price: formData.get("price"),
-        description: formData.get("description"),
-        location: formData.get("location"),
-        yearsUsed: formData.get("yearsUsed"),
-        category: formData.get("category"),
-        // try getAll for arrays, fallback to single value
-        images: typeof (formData as any).getAll === "function" ? (formData as any).getAll("images") : [],
-      };
-    }
-
-    console.log("CREATE AD PAYLOAD:", payload);
+    const {
+      title,
+      price,
+      description,
+      location,
+      category,
+      yearsUsed,
+      lat,
+      lng,
+      images
+    } = body;
 
     const ad = await Ad.create({
-      title: payload.title,
-      price: Number(payload.price),
-      description: payload.description,
-      location: payload.location,
-      yearsUsed: Number(payload.yearsUsed) || 0,
-      category: payload.category,
-      images: payload.images || [],
+      title,
+      price: Number(price),
+      description,
+      locationName: location,
+      category,
+      yearsUsed: Number(yearsUsed) || 0,
+      images,
+
+      location: {
+        type: "Point",
+        coordinates: [Number(lng), Number(lat)],
+      },
+
       user: user.id || user._id,
     });
 
     return NextResponse.json(ad, { status: 201 });
 
   } catch (error) {
-    console.error("CREATE AD ERROR:", error);  // 👈 THIS WILL SHOW REAL ERROR
+    console.error("CREATE AD ERROR:", error);
+
     return NextResponse.json(
       { message: "Internal Server Error" },
       { status: 500 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import AdGrid from "@/components/ads/AdGrid";
 import {
   FiHeart, FiStar, FiMonitor, FiTruck, FiHome, 
@@ -84,6 +85,7 @@ export default function BuyerDashboard() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
               <Section 
                 title="Wishlist" 
+                href="/saved"
                 icon={<FiHeart className="text-rose-500" fill="currentColor" />} 
                 bgColor="bg-rose-50/50" 
                 borderColor="border-rose-100"
@@ -93,6 +95,7 @@ export default function BuyerDashboard() {
 
               <Section 
                 title="Nearby" 
+                href="/nearby"
                 icon={<FiNavigation className="text-emerald-600" />} 
                 bgColor="bg-emerald-50/50" 
                 borderColor="border-emerald-100"
@@ -124,9 +127,10 @@ interface SectionProps {
   bgColor: string;
   borderColor: string;
   children: React.ReactNode;
+  href?: string;
 }
 
-function Section({ title, icon, bgColor, borderColor, children }: SectionProps) {
+function Section({ title, icon, bgColor, borderColor, children, href }: SectionProps) {
   return (
     <section className={`relative group p-10 rounded-[3.5rem] ${bgColor} border ${borderColor} shadow-[0_20px_50px_rgba(0,0,0,0.03)] transition-all duration-500 hover:shadow-[0_30px_60px_rgba(0,0,0,0.06)] hover:bg-white`}>
       <div className="flex items-center justify-between mb-10">
@@ -136,9 +140,17 @@ function Section({ title, icon, bgColor, borderColor, children }: SectionProps) 
           </div>
           <h2 className="text-3xl font-black tracking-tighter">{title}</h2>
         </div>
-        <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 flex items-center gap-2">
-          See All <FiArrowRight />
-        </button>
+        {href ? (
+          <Link href={href}>
+            <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 flex items-center gap-2">
+              See All <FiArrowRight />
+            </button>
+          </Link>
+        ) : (
+          <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 flex items-center gap-2">
+            See All <FiArrowRight />
+          </button>
+        )}
       </div>
       <div className="relative z-10">
         {children}

@@ -2,18 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import api from "@/lib/api";
 
 type Ad = {
   _id: string;
   title: string;
   price: number;
-  location: string;
+  locationName: string;
   images: string[];
-  user:{
-    name: string;
-    role: "buyer"|"seller";9
-  }
 };
 
 type Props = {
@@ -25,77 +22,86 @@ type Props = {
 };
 
 export default function AdGrid({ search, type, layout = "grid", limit, hoverEffect }: Props) {
+
   const [ads, setAds] = useState<Ad[]>([]);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
 
-  // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 400);
 
-    return () => clearTimeout(timer);
-  }, [search]);
+    if (type === "nearby") {
 
-  // Fetch ads when search changes
+      navigator.geolocation.getCurrentPosition((position) => {
+
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+
+      });
+
+    }
+
+  }, [type]);
+
   useEffect(() => {
-    setLoading(true);
 
-    const endpoint = type === "saved" ? "/ads/saved" : "/ads";
+    if (type === "nearby" && !location) return;
+
+    const params: any = {
+      search,
+    };
+
+    if (type === "nearby" && location) {
+      params.lat = location.lat;
+      params.lng = location.lng;
+      params.radius = 100;
+    }
 
     api
-      .get(endpoint, {
-        params: { search: debouncedSearch },
-      })
+      .get("/ads", { params })
       .then((res) => {
-        let fetchedAds = res.data?.ads ?? res.data ?? [];
-        if (limit) {
-          fetchedAds = fetchedAds.slice(0, limit);
-        }
-        setAds(fetchedAds);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch ads:", err);
-        setError("Failed to load ads");
+
+        let fetched = res.data.ads;
+
+        if (limit) fetched = fetched.slice(0, limit);
+
+        setAds(fetched);
+
       })
       .finally(() => setLoading(false));
-  }, [debouncedSearch, type, limit]);
 
-  if (loading) {
-    return <p className="text-gray-500">Loading ads...</p>;
-  }
+  }, [search, location]);
 
-  if (error) {
-    return <p className="text-red-500">{error}</p>;
-  }
+  if (loading) return <p>Loading ads...</p>;
 
-  if (!ads.length) {
-    return (
-      <p className="text-gray-500">
-        No ads available right now
-      </p>
-    );
-  }
+  if (!ads.length) return <p>No ads nearby</p>;
 
   return (
-    <div className={layout === "horizontal" ? "flex gap-5 overflow-x-auto" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"}>
+    <div className={layout === "horizontal"
+      ? "flex gap-5 overflow-x-auto"
+      : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+    }>
       {ads.map((ad) => (
+
         <Link
           key={ad._id}
           href={`/ads/${ad._id}`}
-          className={`rounded-2xl border bg-white dark:bg-neutral-900 hover:shadow-lg transition overflow-hidden ${hoverEffect === "lift" ? "hover:scale-105" : ""}`}
+          className={`rounded-2xl border bg-white hover:shadow-lg transition overflow-hidden ${hoverEffect === "lift" ? "hover:scale-105" : ""}`}
         >
-          <div className="h-36 bg-gray-100 dark:bg-neutral-800">
-            <img
+
+          <div className="h-36 bg-gray-100">
+            <Image
               src={ad.images?.[0] || "/placeholder.png"}
               alt={ad.title}
+              width={200}
+              height={144}
               className="w-full h-full object-cover"
             />
           </div>
 
           <div className="p-4 space-y-1">
+
             <p className="text-green-600 font-bold text-lg">
               ₹ {ad.price}
             </p>
@@ -105,9 +111,11 @@ export default function AdGrid({ search, type, layout = "grid", limit, hoverEffe
             </p>
 
             <p className="text-xs text-gray-500">
-              {ad.location}
+              {ad.locationName}
             </p>
+
           </div>
+
         </Link>
       ))}
     </div>
