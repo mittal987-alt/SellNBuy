@@ -2,16 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { 
-  FiPlus, FiEdit3, FiTrash2, FiMessageCircle, FiTrendingUp, 
-  FiCheckCircle, FiEye, FiLayers, FiActivity, FiArrowUpRight, FiFilter
+  FiPlus, FiEdit3, FiTrash2, FiMessageCircle, 
+  FiEye, FiActivity, FiArrowUpRight, FiFilter
 } from "react-icons/fi";
 
+type Ad = {
+  _id: string;
+  title: string;
+  price: number;
+  images: string[];
+};
+
 export default function EnhancedSellerDashboard() {
-  const [ads, setAds] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [filter, setFilter] = useState("all"); // all, active, sold
 
   useEffect(() => {
@@ -21,8 +28,6 @@ export default function EnhancedSellerDashboard() {
         setAds(res.data);
       } catch (err) {
         console.error(err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchSellerData();
@@ -85,7 +90,7 @@ export default function EnhancedSellerDashboard() {
         {/* --- 📦 LISTINGS GRID --- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <AnimatePresence>
-            {ads.map((ad: any) => (
+            {ads.map((ad) => (
               <InventoryCard key={ad._id} ad={ad} />
             ))}
           </AnimatePresence>
@@ -95,8 +100,16 @@ export default function EnhancedSellerDashboard() {
   );
 }
 
+interface InsightCardProps {
+  title: string;
+  value: string;
+  trend: string;
+  icon: React.ReactNode;
+  color: string;
+}
+
 /* --- 🧊 INSIGHT CARD WITH MINI CHART --- */
-function InsightCard({ title, value, trend, icon, color }: any) {
+function InsightCard({ title, value, trend, icon, color }: InsightCardProps) {
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -119,8 +132,12 @@ function InsightCard({ title, value, trend, icon, color }: any) {
   );
 }
 
+interface InventoryCardProps {
+  ad: Ad;
+}
+
 /* --- 📋 ROW-STYLE INVENTORY CARD --- */
-function InventoryCard({ ad }: any) {
+function InventoryCard({ ad }: InventoryCardProps) {
   return (
     <motion.div 
       layout
@@ -129,7 +146,7 @@ function InventoryCard({ ad }: any) {
       className="group flex gap-6 bg-white p-5 rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.04)]"
     >
       <div className="relative w-40 h-40 rounded-[1.8rem] overflow-hidden flex-shrink-0">
-        <img src={ad.images?.[0] || "/placeholder.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+        <Image src={ad.images?.[0] || "/placeholder.png"} width={160} height={160} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[8px] font-black uppercase">Live</div>
       </div>
 

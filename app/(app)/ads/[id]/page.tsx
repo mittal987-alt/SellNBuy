@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
+import { 
+  FiMapPin, FiClock, FiHeart, FiMessageSquare, 
+  FiPhone, FiShare2, FiChevronLeft, FiChevronRight, FiShield 
+} from "react-icons/fi";
 
 type Ad = {
   _id: string;
@@ -13,8 +19,7 @@ type Ad = {
   location: string;
   yearsUsed: number;
   images: string[];
-  user: string;
-  savedBy?: string[];
+  user: { name: string; _id: string }; // Assuming population from backend
 };
 
 export default function AdDetailsPage() {
@@ -27,24 +32,19 @@ export default function AdDetailsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  /* ================= FETCH AD ================= */
-
   useEffect(() => {
     const fetchAd = async () => {
       try {
         const res = await api.get(`/ads/${id}`);
         setAd(res.data);
       } catch (err) {
-        console.error("Failed to fetch ad", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
     if (id) fetchAd();
   }, [id]);
-
-  /* ================= SAVE AD ================= */
 
   const handleSave = async () => {
     try {
@@ -52,144 +52,164 @@ export default function AdDetailsPage() {
       const res = await api.post(`/ads/saved/${id}`);
       setSaved(res.data.saved);
     } catch (err) {
-      console.error("Save failed", err);
       alert("Failed to save ad");
     } finally {
       setSaving(false);
     }
   };
 
-  /* ================= START CHAT ================= */
-
   const handleStartChat = async () => {
     try {
       const res = await api.post(`/chats/start/${ad?._id}`);
       router.push(`/chats/${res.data.chatId}`);
-    } catch (err: unknown) {
-      console.error("Chat error", err);
-      const error = err as { response?: { status?: number } };
-
-      if (error?.response?.status === 401)
-        alert("Please login first");
-      else if (error?.response?.status === 400)
-        alert("You cannot chat with your own ad");
-      else
-        alert("Unable to start chat");
+    } catch (err: any) {
+      if (err?.response?.status === 401) alert("Please login first");
+      else alert("Unable to start chat");
     }
   };
 
-  /* ================= IMAGE NAV ================= */
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-600"></div>
+    </div>
+  );
 
-  if (loading) return <p className="p-6">Loading...</p>;
-  if (!ad) return <p className="p-6">Ad not found</p>;
-
-  const next = () =>
-    setCurrent((prev) =>
-      prev === ad.images.length - 1 ? 0 : prev + 1
-    );
-
-  const prev = () =>
-    setCurrent((prev) =>
-      prev === 0 ? ad.images.length - 1 : prev - 1
-    );
+  if (!ad) return <div className="p-20 text-center font-bold">Listing not found.</div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-2 gap-10">
-
-      {/* ================= IMAGE SECTION ================= */}
-      <div>
-        <div className="relative h-[450px] rounded-2xl overflow-hidden bg-gray-100">
-          <Image
-            src={ad.images?.[current] || "https://via.placeholder.com/800x450?text=No+Image"}
-            alt="ad"
-            fill
-            className="object-cover"
-          />
-
-          {ad.images.length > 1 && (
-            <>
-              <button
-                onClick={prev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 text-white px-3 py-1 rounded"
-              >
-                ‹
-              </button>
-              <button
-                onClick={next}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 text-white px-3 py-1 rounded"
-              >
-                ›
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* THUMBNAILS */}
-        <div className="flex gap-3 mt-4 flex-wrap">
-          {ad.images.map((img, index) => (
-            <Image
-              key={index}
-              src={img || "https://via.placeholder.com/80x80?text=No+Img"}
-              alt={`ad thumbnail ${index + 1}`}
-              width={80}
-              height={80}
-              onClick={() => setCurrent(index)}
-              className={`object-cover rounded cursor-pointer border ${
-                current === index ? "border-blue-600" : ""
-              }`}
-            />
-          ))}
-        </div>
+    <div className="min-h-screen bg-[#FDFDFD] pb-20">
+      
+      {/* 🧭 NAVIGATION BREADCRUMB */}
+      <div className="max-w-7xl mx-auto px-8 py-6">
+        <Link href="/ads" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors">
+          <FiChevronLeft /> Back to Marketplace
+        </Link>
       </div>
 
-      {/* ================= DETAILS SECTION ================= */}
-      <div className="space-y-6">
+      <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-16">
+        
+        {/* --- 🖼️ LEFT: CINEMATIC GALLERY --- */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="relative aspect-[16/10] rounded-[3rem] overflow-hidden bg-slate-100 shadow-2xl group">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current}
+                initial={{ opacity: 0, scale: 1.1 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                className="w-full h-full"
+              >
+                <Image
+                  src={ad.images?.[current] || "/placeholder.png"}
+                  alt={ad.title}
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </motion.div>
+            </AnimatePresence>
 
-        <h1 className="text-3xl font-bold">{ad.title}</h1>
+            {ad.images.length > 1 && (
+              <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                <NavBtn icon={<FiChevronLeft />} onClick={() => setCurrent(current === 0 ? ad.images.length - 1 : current - 1)} />
+                <NavBtn icon={<FiChevronRight />} onClick={() => setCurrent(current === ad.images.length - 1 ? 0 : current + 1)} />
+              </div>
+            )}
 
-        <p className="text-3xl font-bold text-green-600">
-          ₹ {ad.price}
-        </p>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md p-2 rounded-full">
+               {ad.images.map((_, i) => (
+                 <div key={i} className={`h-1.5 rounded-full transition-all ${current === i ? "w-6 bg-white" : "w-1.5 bg-white/40"}`} />
+               ))}
+            </div>
+          </div>
 
-        <div className="space-y-2 text-gray-600">
-          <p>📍 {ad.location}</p>
-          <p>🕒 {ad.yearsUsed} years used</p>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            {ad.images.map((img, i) => (
+              <button 
+                key={i} 
+                onClick={() => setCurrent(i)}
+                className={`relative w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 border-2 transition-all ${current === i ? "border-blue-600 scale-95" : "border-transparent opacity-60 hover:opacity-100"}`}
+              >
+                <Image src={img} fill className="object-cover" alt="thumb" />
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* SAVE BUTTON */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full border rounded-lg py-3 font-medium hover:bg-gray-100 transition"
-        >
-          {saved ? "❤️ Saved" : "🤍 Save Ad"}
-        </button>
+        {/* --- 📝 RIGHT: ACTION & INFO PANE --- */}
+        <div className="lg:col-span-5 space-y-8">
+          
+          <div className="space-y-4">
+            <h1 className="text-4xl font-black tracking-tighter text-slate-900 leading-tight">
+              {ad.title}
+            </h1>
+            <div className="flex items-center gap-6 text-slate-400 font-bold text-sm">
+               <span className="flex items-center gap-1.5"><FiMapPin className="text-blue-600" /> {ad.location}</span>
+               <span className="flex items-center gap-1.5"><FiClock className="text-blue-600" /> {ad.yearsUsed} Years Used</span>
+            </div>
+            <p className="text-5xl font-black text-blue-600 tracking-tighter pt-2">
+              ₹{ad.price.toLocaleString()}
+            </p>
+          </div>
 
-        {/* CONTACT BUTTON */}
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition">
-          📞 Contact Seller
-        </button>
+          {/* ACTION CLUSTER */}
+          <div className="grid grid-cols-1 gap-4">
+            <button 
+              onClick={handleStartChat}
+              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3"
+            >
+              <FiMessageSquare size={18} /> Start Conversation
+            </button>
+            
+            <div className="flex gap-4">
+              <button 
+                onClick={handleSave}
+                disabled={saving}
+                className={`flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${saved ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+              >
+                <FiHeart fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save Listing"}
+              </button>
+              <button className="px-8 py-5 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
+                <FiShare2 />
+              </button>
+            </div>
+          </div>
 
-        {/* CHAT BUTTON */}
-        <button
-          onClick={handleStartChat}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition"
-        >
-          💬 Start Chat
-        </button>
+          <hr className="border-slate-100" />
 
-        <hr />
+          {/* DESCRIPTION */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Description</h3>
+            <p className="text-slate-600 leading-relaxed font-medium">
+              {ad.description}
+            </p>
+          </div>
 
-        <div>
-          <h2 className="text-lg font-semibold mb-2">
-            Description
-          </h2>
-          <p className="text-gray-700 leading-relaxed">
-            {ad.description}
-          </p>
+          {/* SAFETY PROMISE */}
+          <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 flex gap-4">
+             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                <FiShield size={24} />
+             </div>
+             <div>
+                <h4 className="font-black text-xs uppercase tracking-widest text-blue-900">Bazaari Shield</h4>
+                <p className="text-[10px] font-bold text-blue-700/70 mt-1">Never pay in advance. Always meet the seller in a public place for inspection.</p>
+             </div>
+          </div>
+
         </div>
-
       </div>
     </div>
+  );
+}
+
+function NavBtn({ icon, onClick }: { icon: any, onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick}
+      className="w-12 h-12 bg-white/90 backdrop-blur-md rounded-2xl flex items-center justify-center text-slate-900 shadow-xl hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+    >
+      {icon}
+    </button>
   );
 }

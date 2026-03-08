@@ -18,9 +18,13 @@ type Ad = {
 
 type Props = {
   search: string;
+  type?: "saved" | "nearby" | "trending";
+  layout?: "grid" | "horizontal";
+  limit?: number;
+  hoverEffect?: string;
 };
 
-export default function AdGrid({ search }: Props) {
+export default function AdGrid({ search, type, layout = "grid", limit, hoverEffect }: Props) {
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,19 +43,25 @@ export default function AdGrid({ search }: Props) {
   useEffect(() => {
     setLoading(true);
 
+    const endpoint = type === "saved" ? "/ads/saved" : "/ads";
+
     api
-      .get("/ads", {
+      .get(endpoint, {
         params: { search: debouncedSearch },
       })
       .then((res) => {
-        setAds(res.data?.ads ?? res.data ?? []);
+        let fetchedAds = res.data?.ads ?? res.data ?? [];
+        if (limit) {
+          fetchedAds = fetchedAds.slice(0, limit);
+        }
+        setAds(fetchedAds);
       })
       .catch((err) => {
         console.error("Failed to fetch ads:", err);
         setError("Failed to load ads");
       })
       .finally(() => setLoading(false));
-  }, [debouncedSearch]);
+  }, [debouncedSearch, type, limit]);
 
   if (loading) {
     return <p className="text-gray-500">Loading ads...</p>;
@@ -70,12 +80,12 @@ export default function AdGrid({ search }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+    <div className={layout === "horizontal" ? "flex gap-5 overflow-x-auto" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"}>
       {ads.map((ad) => (
         <Link
           key={ad._id}
           href={`/ads/${ad._id}`}
-          className="rounded-2xl border bg-white dark:bg-neutral-900 hover:shadow-lg transition overflow-hidden"
+          className={`rounded-2xl border bg-white dark:bg-neutral-900 hover:shadow-lg transition overflow-hidden ${hoverEffect === "lift" ? "hover:scale-105" : ""}`}
         >
           <div className="h-36 bg-gray-100 dark:bg-neutral-800">
             <img

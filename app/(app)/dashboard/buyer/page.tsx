@@ -118,7 +118,15 @@ export default function BuyerDashboard() {
 }
 
 /* --- 🧊 ENHANCED SECTION COMPONENT --- */
-function Section({ title, icon, bgColor, borderColor, children }: any) {
+interface SectionProps {
+  title: string;
+  icon: React.ReactNode;
+  bgColor: string;
+  borderColor: string;
+  children: React.ReactNode;
+}
+
+function Section({ title, icon, bgColor, borderColor, children }: SectionProps) {
   return (
     <section className={`relative group p-10 rounded-[3.5rem] ${bgColor} border ${borderColor} shadow-[0_20px_50px_rgba(0,0,0,0.03)] transition-all duration-500 hover:shadow-[0_30px_60px_rgba(0,0,0,0.06)] hover:bg-white`}>
       <div className="flex items-center justify-between mb-10">

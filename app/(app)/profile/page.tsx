@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { 
-  FiUser, FiMail, FiShield, FiEdit2, FiMessageSquare, 
-  FiHeart, FiLogOut, FiPackage, FiMapPin, FiArrowRight 
+  FiMail, FiShield, FiEdit2, FiMessageSquare, 
+  FiHeart, FiLogOut, FiPackage, FiArrowRight 
 } from "react-icons/fi";
 
 type User = {
@@ -146,7 +147,7 @@ export default function ProfilePage() {
 
             {ads.length === 0 ? (
               <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[3rem] py-20 text-center">
-                <p className="text-slate-400 font-bold">You haven't listed anything yet.</p>
+                <p className="text-slate-400 font-bold">You haven&apos;t listed anything yet.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -156,8 +157,10 @@ export default function ProfilePage() {
                     whileHover={{ y: -5 }}
                     className="bg-white border border-slate-100 rounded-[2.5rem] p-4 shadow-sm hover:shadow-xl transition-all"
                   >
-                    <img 
+                    <Image 
                       src={ad.images?.[0] || "/placeholder.png"} 
+                      width={400} 
+                      height={176} 
                       className="h-44 w-full object-cover rounded-[1.8rem] mb-4" 
                       alt={ad.title} 
                     />
@@ -180,9 +183,18 @@ export default function ProfilePage() {
   );
 }
 
+interface ActionTileProps {
+  href?: string;
+  title: string;
+  desc: string;
+  icon: React.ReactNode;
+  color: string;
+  isButton?: boolean;
+}
+
 /* --- 🧊 REUSABLE ACTION TILE --- */
-function ActionTile({ href, title, desc, icon, color, isButton }: any) {
-  const themes: any = {
+function ActionTile({ href, title, desc, icon, color, isButton }: ActionTileProps) {
+  const themes: Record<string, string> = {
     blue: "text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-600",
     rose: "text-rose-600 bg-rose-50 border-rose-100 hover:bg-rose-600",
     slate: "text-slate-600 bg-slate-50 border-slate-100 hover:bg-slate-900",
@@ -198,5 +210,5 @@ function ActionTile({ href, title, desc, icon, color, isButton }: any) {
     </div>
   );
 
-  return isButton ? Content : <Link href={href}>{Content}</Link>;
+  return isButton ? Content : <Link href={href!}>{Content}</Link>;
 }
