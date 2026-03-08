@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import clsx from "clsx";
+import { motion, AnimatePresence } from "framer-motion";
 import { useUserStore } from "@/store/userStore";
 import api from "@/lib/api";
 import ThemeToggle from "@/components/common/ThemeToggle";
@@ -15,158 +15,148 @@ const FiMenu = dynamic(() => import("react-icons/fi").then((m) => m.FiMenu), { s
 const FiX = dynamic(() => import("react-icons/fi").then((m) => m.FiX), { ssr: false });
 const FiSearch = dynamic(() => import("react-icons/fi").then((m) => m.FiSearch), { ssr: false });
 const FiBell = dynamic(() => import("react-icons/fi").then((m) => m.FiBell), { ssr: false });
-const FiUser = dynamic(() => import("react-icons/fi").then((m) => m.FiUser), { ssr: false });
 const FiLogOut = dynamic(() => import("react-icons/fi").then((m) => m.FiLogOut), { ssr: false });
+const FiPlus = dynamic(() => import("react-icons/fi").then((m) => m.FiPlus), { ssr: false });
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [scrolled, setScrolled] = useState(false);
 
   const user = useUserStore((s) => s.user);
   const clearUser = useUserStore((s) => s.clearUser);
 
-  const handleLogout = async () => {
-    await api.post("/auth/logout");
-    clearUser();
-    router.push("/");
-  };
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const navItems = [
-    { title: "Home", href: "/", icon: "FiHome" },
-    { title: "Saved", href: "/saved", icon: "FiHeart" },
-    { title: "Chat", href: "/chat", icon: "FiMessageCircle" },
-    { title: "My Ads", href: "/my-ads", icon: "FiPackage" },
+    { title: "Lounge", href: "/dashboard/buyer", icon: "FiLayout" },
+    { title: "Wishlist", href: "/saved", icon: "FiHeart" },
+    { title: "Messages", href: "/chat", icon: "FiMessageSquare" },
   ];
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-neutral-950/80 border-b">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-
-        {/* Logo */}
-        <Link
-          href="/"
-          className="text-2xl font-extrabold text-blue-600 dark:text-blue-400"
-        >
-          OLX
+    <header 
+      className={clsx(
+        "sticky top-0 z-[100] transition-all duration-500 w-full px-8 py-4",
+        // This ensures the navbar is NEVER pure white. 
+        // It uses a deep obsidian tint (bg-[#020617]) that gets darker as you scroll.
+        scrolled 
+          ? "bg-[#020617]/85 backdrop-blur-xl border-b border-white/20 shadow-2xl" 
+          : "bg-[#020617]/90 backdrop-blur-md border-b border-white/5"
+      )}
+    >
+      <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-10">
+        
+        {/* --- BRANDING --- */}
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all group-hover:scale-110">
+            B
+          </div>
+          <span className="hidden md:block text-2xl font-black tracking-tighter uppercase text-white">
+            Bazaari
+          </span>
         </Link>
 
-        {/* Search */}
-        <div className="hidden md:flex items-center bg-gray-100 dark:bg-neutral-800 rounded-full px-4 py-2 w-80">
-          <FiSearch className="text-gray-500 mr-2" />
+        {/* --- REFINED SEARCH BAR --- */}
+        <form
+          onSubmit={(e) => { e.preventDefault(); router.push(`/search?q=${search}`); }}
+          className="hidden lg:flex flex-1 max-w-lg items-center bg-white/5 border border-white/10 rounded-2xl px-5 py-2.5 transition-all focus-within:border-blue-500 focus-within:bg-white/10"
+        >
+          <FiSearch className="text-slate-400 group-focus-within:text-blue-400" size={18} />
           <input
-            placeholder="Search products..."
-            className="bg-transparent outline-none text-sm w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search the marketplace..."
+            className="bg-transparent outline-none text-sm w-full ml-3 text-white placeholder-slate-500 font-medium"
           />
-        </div>
+          <kbd className="hidden xl:block text-[10px] font-black text-slate-500 bg-white/5 px-2 py-1 rounded">⌘ K</kbd>
+        </form>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-2">
+        {/* --- NAVIGATION --- */}
+        <nav className="hidden xl:flex items-center gap-1">
           {navItems.map((item) => {
             const active = pathname === item.href;
-
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition",
-                  "hover:bg-gray-100 dark:hover:bg-neutral-800",
-                  active && "text-blue-600"
+                  "relative px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300",
+                  active ? "text-white" : "text-white/40 hover:text-white hover:bg-white/5"
                 )}
               >
-                <DynamicIcon iconName={item.icon} />
-                {item.title}
-
                 {active && (
-                  <motion.div
-                    layoutId="navbar"
-                    className="absolute inset-0 rounded-lg bg-blue-100 dark:bg-blue-900/30 -z-10"
+                  <motion.div 
+                    layoutId="navbar-pill"
+                    className="absolute inset-0 bg-white/10 border border-white/10 rounded-xl"
                   />
                 )}
+                <span className="relative z-10 flex items-center gap-2">
+                   <DynamicIcon iconName={item.icon} />
+                   {item.title}
+                </span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Right Side */}
-        <div className="flex items-center gap-3">
-
+        {/* --- ACTIONS --- */}
+        <div className="flex items-center gap-4">
           <ThemeToggle />
-
-          {/* Notification */}
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800">
-            <FiBell size={18} />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 rounded-full">
-              3
-            </span>
-          </button>
-
-          {user ? (
-            <>
-              {/* Avatar */}
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <FiUser />
-                {user.name}
-              </div>
-
-              <Link
-                href="/sell"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold"
-              >
-                Sell
+          
+          <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+            {user ? (
+              <>
+                <Link
+                  href="/sell"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95 flex items-center gap-2"
+                >
+                  <FiPlus size={16} />
+                  List Ad
+                </Link>
+                <button 
+                  onClick={() => api.post("/auth/logout").then(clearUser)}
+                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                >
+                  <FiLogOut size={18} />
+                </button>
+              </>
+            ) : (
+              <Link href="/login" className="bg-white text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                Join
               </Link>
+            )}
+          </div>
 
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 text-rose-500 hover:text-rose-600"
-              >
-                <FiLogOut />
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="text-sm font-semibold hover:text-blue-600"
-              >
-                Login
-              </Link>
-
-              <Link
-                href="/register"
-                className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm"
-              >
-                Register
-              </Link>
-            </>
-          )}
-
-          {/* Mobile Menu */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="xl:hidden text-white p-2">
+            {mobileOpen ? <FiX size={24} /> : <FiMenu size={24} />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {mobileOpen && (
-        <div className="md:hidden border-t p-4 space-y-3">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-2 text-sm font-medium"
-            >
-              <DynamicIcon iconName={item.icon} />
-              {item.title}
-            </Link>
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="xl:hidden mt-4 rounded-3xl bg-[#070e20] border border-white/10 p-6 space-y-4"
+          >
+            {navItems.map((item) => (
+              <Link key={item.href} href={item.href} className="flex items-center gap-4 text-white/70 font-black text-xs uppercase tracking-widest p-2">
+                <DynamicIcon iconName={item.icon} /> {item.title}
+              </Link>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
