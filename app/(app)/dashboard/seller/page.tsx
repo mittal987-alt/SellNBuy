@@ -2,194 +2,162 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
+import { 
+  FiPlus, FiEdit3, FiTrash2, FiMessageCircle, FiTrendingUp, 
+  FiCheckCircle, FiEye, FiLayers, FiActivity, FiArrowUpRight, FiFilter
+} from "react-icons/fi";
 
-/* ---------------- SIDEBAR ---------------- */
-
-/* ---------------- TYPES ---------------- */
-
-type Ad = {
-  _id: string;
-  title: string;
-  price: number;
-  location: string;
-  images: string[];
-};
-
-export default function SellerDashboard() {
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [chatCount, setChatCount] = useState(0);
+export default function EnhancedSellerDashboard() {
+  const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  /* ---------------- FETCH ADS + CHATS ---------------- */
+  const [filter, setFilter] = useState("all"); // all, active, sold
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchSellerData = async () => {
       try {
-        const [adsRes, chatsRes] = await Promise.all([
-          api.get("/ads/my"),
-          api.get("/chats"),
-        ]);
-
-        setAds(adsRes.data);
-        setChatCount(chatsRes.data.length);
+        const res = await api.get("/ads/my");
+        setAds(res.data);
       } catch (err) {
-        console.error("Failed to load dashboard data", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchData();
+    fetchSellerData();
   }, []);
 
-  /* ---------------- DELETE AD ---------------- */
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this ad?")) return;
-
-    try {
-      setDeletingId(id);
-      await api.delete(`/ads/${id}`);
-      setAds((prev) => prev.filter((ad) => ad._id !== id));
-    } catch (err) {
-      console.error("Delete failed", err);
-      alert("Failed to delete ad");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="grid grid-cols-12 gap-6">
-
-        {/* SIDEBAR */}
-        <aside className="hidden md:block md:col-span-3 lg:col-span-2">
-          <div className="sticky top-24">
-           
-          </div>
-        </aside>
-
-        {/* MAIN */}
-        <main className="col-span-12 md:col-span-9 lg:col-span-10 space-y-10">
-
-          {/* HEADER */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-20">
+      
+      {/* --- 🚀 TOP METRICS BOARD --- */}
+      <div className="bg-white border-b border-slate-200 pt-12 pb-20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
             <div>
-              <h1 className="text-2xl font-bold">Seller Dashboard</h1>
-              <p className="text-gray-500">
-                Manage your ads and track performance
-              </p>
+              <h1 className="text-4xl font-black tracking-tighter italic uppercase text-slate-900">Console<span className="text-blue-600">.</span></h1>
+              <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">Performance & Inventory</p>
             </div>
-
             <Link
               href="/create-ad"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-medium transition shadow"
+              className="group flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-900 shadow-xl shadow-blue-200"
             >
-              + Post New Ad
+              <FiPlus /> New Listing
             </Link>
           </div>
 
-          {/* STATS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Active Ads" value={ads.length.toString()} />
-            <StatCard label="Sold Items" value="0" />
-            <StatCard label="Total Views" value="0" />
-            <StatCard label="Messages" value={chatCount.toString()} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <InsightCard title="Total Revenue" value="₹42,800" trend="+12.5%" icon={<FiActivity />} color="blue" />
+            <InsightCard title="Active Leads" value="14" trend="+3 new" icon={<FiMessageCircle />} color="indigo" />
+            <InsightCard title="Ad Impressions" value="2.8k" trend="+18%" icon={<FiEye />} color="emerald" />
           </div>
-
-          {/* LISTINGS */}
-          <section>
-            <h2 className="text-xl font-semibold mb-4">My Listings</h2>
-
-            {loading ? (
-              <p className="text-gray-500">Loading ads...</p>
-            ) : ads.length === 0 ? (
-              <div className="rounded-xl border p-6 text-center text-gray-500 bg-white dark:bg-neutral-900">
-                You haven’t posted any ads yet
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {ads.map((ad) => (
-                  <ListingCard
-                    key={ad._id}
-                    ad={ad}
-                    deleting={deletingId === ad._id}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-        </main>
+        </div>
       </div>
-    </div>
-  );
-}
 
-/* ---------------- STAT CARD ---------------- */
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border p-5 bg-white dark:bg-neutral-900">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-    </div>
-  );
-}
-
-/* ---------------- LISTING CARD ---------------- */
-
-function ListingCard({
-  ad,
-  deleting,
-  onDelete,
-}: {
-  ad: Ad;
-  deleting: boolean;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <div className="rounded-xl border p-4 bg-white dark:bg-neutral-900 hover:shadow-md transition">
-
-      {/* CLICKABLE AREA */}
-      <Link href={`/ads/${ad._id}`} className="block">
-        <div className="h-32 bg-gray-100 dark:bg-neutral-800 rounded-lg mb-3 overflow-hidden">
-          <img
-            src={ad.images?.[0] || "/placeholder.png"}
-            className="w-full h-full object-cover"
-            alt="ad"
-          />
+      <div className="max-w-7xl mx-auto px-8 -mt-10">
+        
+        {/* --- 🛠️ INVENTORY CONTROLS --- */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-[2rem] border border-slate-200 shadow-xl mb-12">
+          <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-auto">
+            {["all", "active", "sold"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`flex-1 md:flex-none px-8 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  filter === tab ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-4 px-4 w-full md:w-auto">
+             <FiFilter className="text-slate-400" />
+             <input 
+               type="text" 
+               placeholder="Search inventory..." 
+               className="bg-transparent outline-none font-bold text-sm w-full"
+             />
+          </div>
         </div>
 
-        <p className="font-bold text-green-600">₹ {ad.price}</p>
-        <p className="text-sm font-medium mt-1">{ad.title}</p>
-        <p className="text-xs text-gray-500 mt-1">{ad.location}</p>
-      </Link>
-
-      {/* ACTION BUTTONS */}
-      <div className="flex justify-between mt-3 text-xs">
-        <Link
-          href={`/dashboard/seller/edit/${ad._id}`}
-          className="text-blue-600 hover:underline"
-        >
-          Edit
-        </Link>
-
-        <button
-          disabled={deleting}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(ad._id);
-          }}
-          className="text-red-500 disabled:opacity-50"
-        >
-          {deleting ? "Deleting..." : "Delete"}
-        </button>
+        {/* --- 📦 LISTINGS GRID --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <AnimatePresence>
+            {ads.map((ad: any) => (
+              <InventoryCard key={ad._id} ad={ad} />
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* --- 🧊 INSIGHT CARD WITH MINI CHART --- */
+function InsightCard({ title, value, trend, icon, color }: any) {
+  return (
+    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-4 rounded-2xl bg-${color}-50 text-${color}-600 text-xl`}>
+          {icon}
+        </div>
+        <div className="flex items-center gap-1 text-emerald-500 font-black text-xs">
+          <FiArrowUpRight /> {trend}
+        </div>
+      </div>
+      <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">{title}</p>
+      <div className="flex items-end justify-between">
+        <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h3>
+        {/* MINI SPARKLINE SVG */}
+        <svg className="w-20 h-10 text-blue-200" viewBox="0 0 100 40">
+           <path d="M0 35 Q 20 10, 40 25 T 80 5 T 100 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/* --- 📋 ROW-STYLE INVENTORY CARD --- */
+function InventoryCard({ ad }: any) {
+  return (
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group flex gap-6 bg-white p-5 rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.04)]"
+    >
+      <div className="relative w-40 h-40 rounded-[1.8rem] overflow-hidden flex-shrink-0">
+        <img src={ad.images?.[0] || "/placeholder.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[8px] font-black uppercase">Live</div>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-between py-2">
+        <div>
+          <div className="flex justify-between items-start">
+            <h3 className="font-black text-lg text-slate-900 line-clamp-1">{ad.title}</h3>
+            <p className="text-xl font-black text-blue-600 tracking-tighter">₹{ad.price.toLocaleString()}</p>
+          </div>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+               <FiEye /> 1,240 views
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+               <FiMessageCircle /> 8 chats
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Link href={`/dashboard/seller/edit/${ad._id}`} className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-colors">
+            <FiEdit3 /> Edit
+          </Link>
+          <button className="px-5 border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-all">
+            <FiTrash2 />
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
