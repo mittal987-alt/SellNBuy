@@ -11,15 +11,17 @@ import {
   FiPhone, FiShare2, FiChevronLeft, FiChevronRight, FiShield 
 } from "react-icons/fi";
 
+// ✅ UPDATED TYPE: location is now the GeoJSON object, locationName is the string
 type Ad = {
   _id: string;
   title: string;
   price: number;
   description: string;
-  location: string;
+  locationName: string; // The city name string from backend
+  location: { type: string; coordinates: number[] }; // The GeoJSON object
   yearsUsed: number;
   images: string[];
-  user: { name: string; _id: string }; // Assuming population from backend
+  user: { name: string; _id: string };
 };
 
 export default function AdDetailsPage() {
@@ -78,8 +80,6 @@ export default function AdDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] pb-20">
-      
-      {/* 🧭 NAVIGATION BREADCRUMB */}
       <div className="max-w-7xl mx-auto px-8 py-6">
         <Link href="/ads" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors">
           <FiChevronLeft /> Back to Marketplace
@@ -87,8 +87,6 @@ export default function AdDetailsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-16">
-        
-        {/* --- 🖼️ LEFT: CINEMATIC GALLERY --- */}
         <div className="lg:col-span-7 space-y-6">
           <div className="relative aspect-[16/10] rounded-[3rem] overflow-hidden bg-slate-100 shadow-2xl group">
             <AnimatePresence mode="wait">
@@ -137,15 +135,14 @@ export default function AdDetailsPage() {
           </div>
         </div>
 
-        {/* --- 📝 RIGHT: ACTION & INFO PANE --- */}
         <div className="lg:col-span-5 space-y-8">
-          
           <div className="space-y-4">
             <h1 className="text-4xl font-black tracking-tighter text-slate-900 leading-tight">
               {ad.title}
             </h1>
             <div className="flex items-center gap-6 text-slate-400 font-bold text-sm">
-               <span className="flex items-center gap-1.5"><FiMapPin className="text-blue-600" /> {ad.location}</span>
+               {/* ✅ FIX: ad.locationName instead of ad.location */}
+               <span className="flex items-center gap-1.5"><FiMapPin className="text-blue-600" /> {ad.locationName || "Remote"}</span>
                <span className="flex items-center gap-1.5"><FiClock className="text-blue-600" /> {ad.yearsUsed} Years Used</span>
             </div>
             <p className="text-5xl font-black text-blue-600 tracking-tighter pt-2">
@@ -153,7 +150,6 @@ export default function AdDetailsPage() {
             </p>
           </div>
 
-          {/* ACTION CLUSTER */}
           <div className="grid grid-cols-1 gap-4">
             <button 
               onClick={handleStartChat}
@@ -178,7 +174,6 @@ export default function AdDetailsPage() {
 
           <hr className="border-slate-100" />
 
-          {/* DESCRIPTION */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Description</h3>
             <p className="text-slate-600 leading-relaxed font-medium">
@@ -186,17 +181,15 @@ export default function AdDetailsPage() {
             </p>
           </div>
 
-          {/* SAFETY PROMISE */}
           <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 flex gap-4">
-             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                <FiShield size={24} />
-             </div>
-             <div>
-                <h4 className="font-black text-xs uppercase tracking-widest text-blue-900">Bazaari Shield</h4>
-                <p className="text-[10px] font-bold text-blue-700/70 mt-1">Never pay in advance. Always meet the seller in a public place for inspection.</p>
-             </div>
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                 <FiShield size={24} />
+              </div>
+              <div>
+                 <h4 className="font-black text-xs uppercase tracking-widest text-blue-900">Bazaari Shield</h4>
+                 <p className="text-[10px] font-bold text-blue-700/70 mt-1">Never pay in advance. Always meet the seller in a public place for inspection.</p>
+              </div>
           </div>
-
         </div>
       </div>
     </div>

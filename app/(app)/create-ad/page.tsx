@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FiArrowLeft, FiCamera, FiTag, FiMapPin, 
-  FiGrid, FiCheck, FiInfo, FiX, FiHeart
+  FiGrid, FiCheck, FiInfo, FiX, FiHeart, FiLoader
 } from "react-icons/fi";
 
 export default function CreateAdPage() {
@@ -18,13 +18,42 @@ export default function CreateAdPage() {
     title: "",
     price: "",
     description: "",
-    location: "",
+    location: "", // This is the string (City name)
     category: "",
     yearsUsed: "",
+    lat: null as number | null, // Added for backend validation
+    lng: null as number | null, // Added for backend validation
   });
+
   const [images, setImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  // --- 📍 GEOLOCATION LOGIC ---
+  const getDeviceLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm(prev => ({
+          ...prev,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }));
+        setLocating(false);
+      },
+      (error) => {
+        console.error("Location error:", error);
+        setLocating(false);
+        alert("Please enable location permissions to post an ad.");
+      }
+    );
+  };
 
   const handleImageUpload = async (files: FileList) => {
     setUploading(true);
@@ -44,9 +73,18 @@ export default function CreateAdPage() {
     setImages(images.filter((_, i) => i !== index));
   };
 
+  // --- 🚀 SUBMIT LOGIC ---
   const handleSubmit = async () => {
+    // Basic Field Validation
     if (!form.title || !form.price || !form.location || !form.category) {
       alert("Please fill required fields");
+      return;
+    }
+
+    // Coordinate Validation (Required by your Backend)
+    if (!form.lat || !form.lng) {
+      alert("We need your GPS coordinates to show your ad to nearby buyers.");
+      getDeviceLocation();
       return;
     }
 
@@ -55,13 +93,14 @@ export default function CreateAdPage() {
       await api.post("/ads", {
         ...form,
         price: Number(form.price),
-        yearsUsed: Number(form.yearsUsed),
+        yearsUsed: Number(form.yearsUsed) || 0,
         images,
       });
       router.push("/dashboard/seller");
       router.refresh();
-    } catch {
-      alert("Failed to publish ad");
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || "Failed to publish ad";
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -79,7 +118,7 @@ export default function CreateAdPage() {
             <h1 className="text-3xl font-black tracking-tighter italic">Studio<span className="text-blue-600">.</span></h1>
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">New Listing Creation</p>
         </div>
-        <div className="w-20"></div> {/* Spacer */}
+        <div className="w-20"></div>
       </div>
 
       <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-16">
@@ -87,7 +126,6 @@ export default function CreateAdPage() {
         {/* --- 📝 FORM SECTION --- */}
         <div className="lg:col-span-7 space-y-12">
           
-          {/* STEP 1: IDENTITY */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 mb-8">
                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">01</div>
@@ -97,7 +135,26 @@ export default function CreateAdPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <PremiumInput label="Listing Title" placeholder="e.g. iPhone 15 Pro Max" value={form.title} onChange={(v: string) => setForm({...form, title: v})} icon={<FiTag />} />
               <PremiumInput label="Price (₹)" type="number" placeholder="0.00" value={form.price} onChange={(v: string) => setForm({...form, price: v})} icon={<span className="font-bold text-xs">₹</span>} />
-              <PremiumInput label="Location" placeholder="Delhi, Mumbai..." value={form.location} onChange={(v: string) => setForm({...form, location: v})} icon={<FiMapPin />} />
+              
+              {/* --- LOCATION INPUT WITH GPS TRIGGER --- */}
+              <div className="relative">
+                <PremiumInput 
+                    label="Location Name" 
+                    placeholder="Delhi, Mumbai..." 
+                    value={form.location} 
+                    onChange={(v: string) => setForm({...form, location: v})} 
+                    icon={<FiMapPin />} 
+                />
+                <button 
+                    onClick={getDeviceLocation}
+                    type="button"
+                    className="absolute right-4 bottom-4 text-[9px] font-black uppercase tracking-tighter text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                    {locating ? <FiLoader className="animate-spin" /> : <FiMapPin />}
+                    {form.lat ? "Location Set" : "Get GPS"}
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Category</label>
                 <div className="relative">
@@ -156,12 +213,11 @@ export default function CreateAdPage() {
 
         {/* --- 🖼️ PREVIEW SECTION --- */}
         <div className="lg:col-span-5">
-           <div className="sticky top-10 space-y-8">
+            <div className="sticky top-10 space-y-8">
               <div className="bg-slate-900 rounded-[3rem] p-10 text-white overflow-hidden relative">
                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600 blur-[80px] opacity-40"></div>
                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-10">Live Marketplace Preview</h3>
                  
-                 {/* MINI AD CARD PREVIEW */}
                  <div className="bg-white rounded-[2rem] p-4 text-slate-900 shadow-2xl">
                     <div className="aspect-[4/3] bg-slate-100 rounded-2xl overflow-hidden mb-4 relative">
                        {images[0] ? <Image src={images[0]} width={400} height={300} className="w-full h-full object-cover" alt="Product preview" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FiCamera size={32} /></div>}
@@ -177,21 +233,21 @@ export default function CreateAdPage() {
                  </div>
 
                  <button 
-                   onClick={handleSubmit} 
-                   disabled={loading || uploading}
-                   className="w-full mt-10 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900 transition-all flex items-center justify-center gap-3"
+                    onClick={handleSubmit} 
+                    disabled={loading || uploading || locating}
+                    className="w-full mt-10 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900 transition-all flex items-center justify-center gap-3"
                  >
-                   {loading ? "Publishing Listing..." : <><FiCheck /> Launch Ad</>}
+                    {loading ? "Publishing Listing..." : <><FiCheck /> Launch Ad</>}
                  </button>
               </div>
 
               <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex gap-4">
                  <FiInfo className="text-blue-600 mt-1 shrink-0" />
                  <p className="text-xs font-medium text-blue-800 leading-relaxed">
-                   Ads with clear titles and multiple photos sell **3x faster** on Bazaari. Ensure your lighting is bright!
+                   Ads with precise location data are <b>prioritized</b> in local search results. Ensure GPS is enabled!
                  </p>
               </div>
-           </div>
+            </div>
         </div>
 
       </div>
@@ -204,10 +260,9 @@ interface PremiumInputProps {
   icon: React.ReactNode;
   value: string;
   onChange: (value: string) => void;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
-/* --- 🧊 PREMIUM INPUT COMPONENT --- */
 function PremiumInput({ label, icon, value, onChange, ...props }: PremiumInputProps) {
   return (
     <div className="space-y-2">

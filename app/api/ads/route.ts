@@ -9,9 +9,8 @@ import Ad from "@/models/Ad";
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 /* =========================================================
-   GET ADS (FILTERS + NEARBY + PAGINATION)
+   GET ADS (FILTER + SEARCH + NEARBY + PAGINATION)
 ========================================================= */
-
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
@@ -22,8 +21,9 @@ export async function GET(req: NextRequest) {
     const city = searchParams.get("city");
     const min = searchParams.get("min");
     const max = searchParams.get("max");
-    const sort = searchParams.get("sort");
     const category = searchParams.get("category");
+    const sort = searchParams.get("sort");
+
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
     const radius = searchParams.get("radius");
@@ -32,26 +32,23 @@ export async function GET(req: NextRequest) {
     const limit = 8;
 
     const filter: any = {};
+    const geoFilter: any = {};
 
-    /* SEARCH */
+    /* ================= SEARCH ================= */
 
     if (search) {
       filter.title = { $regex: search, $options: "i" };
     }
 
-    /* CITY */
-
     if (city) {
       filter.locationName = { $regex: city, $options: "i" };
     }
-
-    /* CATEGORY */
 
     if (category) {
       filter.category = category;
     }
 
-    /* PRICE */
+    /* ================= PRICE FILTER ================= */
 
     if (min || max) {
       filter.price = {};
@@ -60,23 +57,28 @@ export async function GET(req: NextRequest) {
       if (max) filter.price.$lte = Number(max);
     }
 
-    /* NEARBY SEARCH */
+    /* ================= GEO FILTER ================= */
 
     if (lat && lng && radius) {
-      filter.location = {
+      geoFilter.location = {
         $near: {
           $geometry: {
             type: "Point",
             coordinates: [Number(lng), Number(lat)],
           },
-          $maxDistance: Number(radius),
+          $maxDistance: Number(radius) * 1000, // km → meters
         },
       };
     }
 
-    /* SORT */
+    /* ================= QUERY ================= */
 
-    let query = Ad.find(filter);
+    let query = Ad.find({
+      ...filter,
+      ...geoFilter,
+    });
+
+    /* ================= SORT ================= */
 
     if (sort === "price_low") {
       query = query.sort({ price: 1 });
@@ -86,24 +88,16 @@ export async function GET(req: NextRequest) {
       query = query.sort({ createdAt: -1 });
     }
 
-    /* COUNT */
-
-    let total;
-
-    if (lat && lng && radius) {
-      const countFilter = { ...filter };
-      delete countFilter.location;
-      total = await Ad.countDocuments(countFilter);
-    } else {
-      total = await Ad.countDocuments(filter);
-    }
-
-    /* FETCH */
+    /* ================= FETCH ADS ================= */
 
     const ads = await query
       .skip((page - 1) * limit)
       .limit(limit)
       .populate("user", "name email");
+
+    /* ================= COUNT (WITHOUT GEO FILTER) ================= */
+
+    const total = await Ad.countDocuments(filter);
 
     return NextResponse.json({
       ads,
@@ -130,10 +124,14 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    const token = (await cookies()).get("token")?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
 
     if (!token) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const user: any = jwt.verify(token, JWT_SECRET);
@@ -144,19 +142,30 @@ export async function POST(req: Request) {
       title,
       price,
       description,
-      location,
+      location: locationName,
       category,
       yearsUsed,
       lat,
       lng,
-      images
+      images,
     } = body;
+
+    /* ================= VALIDATION ================= */
+
+    if (!lat || !lng) {
+      return NextResponse.json(
+        { message: "Latitude and Longitude required" },
+        { status: 400 }
+      );
+    }
+
+    /* ================= CREATE AD ================= */
 
     const ad = await Ad.create({
       title,
       price: Number(price),
       description,
-      locationName: location,
+      locationName,
       category,
       yearsUsed: Number(yearsUsed) || 0,
       images,
@@ -171,8 +180,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json(ad, { status: 201 });
 
-  } catch (error) {
+  } catch (error: any) {
+
     console.error("CREATE AD ERROR:", error);
+
+    if (error.name === "ValidationError") {
+      return NextResponse.json(
+        { message: error.message },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(
       { message: "Internal Server Error" },

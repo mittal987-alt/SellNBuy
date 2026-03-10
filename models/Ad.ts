@@ -7,6 +7,7 @@ const AdSchema = new mongoose.Schema(
     category: { type: String, required: true },
     description: { type: String, default: "" },
     locationName: { type: String, default: "Unknown" },
+
     location: {
       type: {
         type: String,
@@ -14,17 +15,27 @@ const AdSchema = new mongoose.Schema(
         default: "Point",
       },
       coordinates: {
-        type: [Number], // MUST BE [longitude, latitude]
+        type: [Number], // [longitude, latitude]
         required: true,
       },
     },
+
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
     images: { type: [String], default: [] },
+
+    // ⭐ ADD THIS
+    savedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
 
-// Explicitly index the coordinates field for geospatial queries
-AdSchema.index({ "location.coordinates": "2dsphere" });
+// Geo index
+AdSchema.index({ location: "2dsphere" });
 
 export default mongoose.models.Ad || mongoose.model("Ad", AdSchema);

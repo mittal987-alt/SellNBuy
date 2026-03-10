@@ -5,13 +5,14 @@ import api from "@/lib/api";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiHeart, FiMapPin, FiArrowLeft, FiShoppingBag, FiTrash2 } from "react-icons/fi";
+import { FiHeart, FiMapPin, FiArrowLeft, FiTrash2 } from "react-icons/fi";
 
+// ✅ Updated Type definition
 type Ad = {
   _id: string;
   title: string;
   price: number;
-  location: string;
+  locationName: string; // Changed from 'location: string'
   images: string[];
 };
 
@@ -34,9 +35,10 @@ export default function SavedPage() {
   }, []);
 
   const handleUnsave = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault(); // Prevents navigating to the ad page
+    e.preventDefault(); 
     try {
-      await api.post(`/ads/${id}/toggle-save`);
+      // ✅ URL updated to match your backend toggle route
+      await api.post(`/ads/saved/${id}`); 
       setAds((prev) => prev.filter((ad) => ad._id !== id));
     } catch (err) {
       console.error("Failed to unsave:", err);
@@ -45,12 +47,9 @@ export default function SavedPage() {
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-slate-900 pb-20">
-      {/* 🌌 AMBIENT ACCENT */}
       <div className="fixed top-0 right-0 w-[30%] h-[30%] bg-rose-50/50 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-8 py-12">
-        
-        {/* --- 🏷️ HEADER --- */}
         <header className="mb-16 space-y-4">
           <Link href="/dashboard/buyer" className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-blue-600 transition-colors">
             <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" /> Back to Lounge
@@ -67,7 +66,6 @@ export default function SavedPage() {
           </div>
         </header>
 
-        {/* --- 🖼️ CONTENT --- */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[...Array(4)].map((_, i) => (
@@ -109,11 +107,9 @@ export default function SavedPage() {
                         alt={ad.title}
                         fill
                       />
-                      {/* QUICK REMOVE BUTTON */}
                       <button
                         onClick={(e) => handleUnsave(e, ad._id)}
                         className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-rose-500 shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
-                        title="Remove from saved"
                       >
                         <FiTrash2 size={18} />
                       </button>
@@ -133,7 +129,8 @@ export default function SavedPage() {
                       </h3>
                       <div className="flex items-center gap-2 text-slate-400">
                         <FiMapPin size={14} className="text-blue-500" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.1em]">{ad.location}</span>
+                        {/* ✅ FIX: Render ad.locationName string instead of location object */}
+                        <span className="text-[10px] font-black uppercase tracking-[0.1em]">{ad.locationName || "Location Not Set"}</span>
                       </div>
                     </div>
                   </Link>

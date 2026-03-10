@@ -114,7 +114,7 @@ export default function Navbar() {
             {user ? (
               <>
                 <Link
-                  href="/sell"
+                  href="/dashboard/seller"
                   className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95 flex items-center gap-2"
                 >
                   <FiPlus size={16} />

@@ -21,11 +21,19 @@ type Props = {
   hoverEffect?: string;
 };
 
-export default function AdGrid({ search, type, layout = "grid", limit, hoverEffect }: Props) {
+export default function AdGrid({
+  search,
+  type,
+  layout = "grid",
+  limit,
+  hoverEffect,
+}: Props) {
 
   const [ads, setAds] = useState<Ad[]>([]);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /* ---------------- GET USER LOCATION (FOR NEARBY) ---------------- */
 
   useEffect(() => {
 
@@ -44,6 +52,8 @@ export default function AdGrid({ search, type, layout = "grid", limit, hoverEffe
 
   }, [type]);
 
+  /* ---------------- FETCH ADS ---------------- */
+
   useEffect(() => {
 
     if (type === "nearby" && !location) return;
@@ -58,36 +68,67 @@ export default function AdGrid({ search, type, layout = "grid", limit, hoverEffe
       params.radius = 100;
     }
 
+    let url = "/ads";
+
+    // ⭐ Wishlist
+    if (type === "saved") {
+      url = "/ads/saved";
+    }
+
     api
-      .get("/ads", { params })
+      .get(url, { params })
       .then((res) => {
 
-        let fetched = res.data.ads;
+        // saved API returns array directly
+        let fetched = type === "saved" ? res.data : res.data.ads;
 
         if (limit) fetched = fetched.slice(0, limit);
 
         setAds(fetched);
 
       })
+      .catch((err) => {
+
+        console.error("Error fetching ads:", err);
+
+      })
       .finally(() => setLoading(false));
 
-  }, [search, location]);
+  }, [search, location, type, limit]);
+
+  /* ---------------- LOADING ---------------- */
 
   if (loading) return <p>Loading ads...</p>;
 
-  if (!ads.length) return <p>No ads nearby</p>;
+  /* ---------------- EMPTY STATES ---------------- */
+
+  if (!ads.length) {
+
+    if (type === "saved") return <p>No saved items yet</p>;
+    if (type === "nearby") return <p>No ads nearby</p>;
+
+    return <p>No ads found</p>;
+  }
+
+  /* ---------------- UI ---------------- */
 
   return (
-    <div className={layout === "horizontal"
-      ? "flex gap-5 overflow-x-auto"
-      : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
-    }>
+    <div
+      className={
+        layout === "horizontal"
+          ? "flex gap-5 overflow-x-auto"
+          : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+      }
+    >
+
       {ads.map((ad) => (
 
         <Link
           key={ad._id}
           href={`/ads/${ad._id}`}
-          className={`rounded-2xl border bg-white hover:shadow-lg transition overflow-hidden ${hoverEffect === "lift" ? "hover:scale-105" : ""}`}
+          className={`rounded-2xl border bg-white hover:shadow-lg transition overflow-hidden ${
+            hoverEffect === "lift" ? "hover:scale-105" : ""
+          }`}
         >
 
           <div className="h-36 bg-gray-100">
@@ -117,7 +158,9 @@ export default function AdGrid({ search, type, layout = "grid", limit, hoverEffe
           </div>
 
         </Link>
+
       ))}
+
     </div>
   );
 }
