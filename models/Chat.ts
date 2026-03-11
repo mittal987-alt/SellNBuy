@@ -1,22 +1,29 @@
 import mongoose from "mongoose";
 
 const ChatSchema = new mongoose.Schema(
-  {
-    ad: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Ad",
-      required: true,
-    },
-    participants: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-      },
-    ],
+{
+  adId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Ad"
   },
-  { timestamps: true }
+
+  buyer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+
+  seller: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+
+  lastMessage: {
+    type: String,
+    default: ""
+  }
+
+},
+{ timestamps: true }
 );
 
-export default mongoose.models.Chat ||
-  mongoose.model("Chat", ChatSchema);
+export default mongoose.models.Chat || mongoose.model("Chat", ChatSchema);

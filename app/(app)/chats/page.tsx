@@ -1,68 +1,116 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
 import api from "@/lib/api";
+import { socket } from "@/lib/socket"; // Import your socket utility
 
-type Chat = {
+type Message = {
   _id: string;
-  ad: {
-    title: string;
-    images: string[];
-  };
-  otherUser: {
-    name: string;
-  };
+  text: string;
+  sender: string;
 };
 
-export default function ChatsPage() {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ChatRoom() {
+  const { id } = useParams();
+  const chatId = String(id);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [text, setText] = useState("");
+
+  const userId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+
+  // --- 1. INITIAL LOAD & SOCKET SETUP ---
   useEffect(() => {
-    const fetchChats = async () => {
-      try {
-        const res = await api.get("/chats");
-        setChats(res.data);
-      } catch (err) {
-        console.error("Failed to load chats");
-      } finally {
-        setLoading(false);
-      }
+    if (!chatId) return;
+
+    // Load history
+    const fetchMessages = async () => {
+      const res = await api.get(`/chats/${chatId}`);
+      setMessages(res.data);
     };
+    fetchMessages();
 
-    fetchChats();
-  }, []);
+    // Socket Connection
+    socket.connect();
+    socket.emit("join_chat", chatId);
 
-  if (loading) return <p className="p-6">Loading chats...</p>;
+    // Listen for new messages
+    socket.on("receive_message", (newMessage: Message) => {
+      setMessages((prev) => [...prev, newMessage]);
+    });
+
+    return () => {
+      socket.off("receive_message");
+      socket.disconnect();
+    };
+  }, [chatId]);
+
+  // --- 2. AUTO SCROLL TO BOTTOM ---
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // --- 3. SEND MESSAGE ---
+  const sendMessage = async () => {
+    if (!text.trim()) return;
+
+    try {
+      // Step A: Save to MongoDB via API
+      const res = await api.post(`/chats/${chatId}`, { text });
+      const savedMsg = res.data;
+
+      // Step B: Update local state
+      setMessages((prev) => [...prev, savedMsg]);
+
+      // Step C: Emit to socket for the other user
+      socket.emit("send_message", { 
+        chatId, 
+        text: savedMsg.text, 
+        sender: userId, 
+        _id: savedMsg._id 
+      });
+
+      setText("");
+    } catch (err) {
+      alert("Failed to send message");
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Your Chats</h1>
+    <div className="max-w-3xl mx-auto p-4 flex flex-col h-[85vh]">
+      <div className="flex-1 overflow-y-auto space-y-3 px-2">
+        {messages.map((m) => (
+          <div
+            key={m._id}
+            className={`p-3 rounded-2xl w-fit max-w-[80%] shadow-sm ${
+              m.sender === userId
+                ? "ml-auto bg-blue-600 text-white rounded-tr-none"
+                : "bg-gray-200 text-gray-800 rounded-tl-none"
+            }`}
+          >
+            {m.text}
+          </div>
+        ))}
+        <div ref={scrollRef} />
+      </div>
 
-      {chats.length === 0 ? (
-        <p className="text-gray-500">No conversations yet</p>
-      ) : (
-        <div className="space-y-3">
-          {chats.map((chat) => (
-            <Link
-              key={chat._id}
-              href={`/chats/${chat._id}`}
-              className="flex items-center gap-4 border rounded-xl p-4 hover:bg-gray-50 dark:hover:bg-neutral-800"
-            >
-              <img
-                src={chat.ad.images?.[0] || "/placeholder.png"}
-                className="h-14 w-14 object-cover rounded-lg"
-              />
-
-              <div>
-                <p className="font-semibold">{chat.otherUser?.name || "User"}</p>
-                 <p className="text-sm text-gray-500">{chat.ad.title}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-2 mt-4 bg-white p-2 border-t">
+        <input
+          value={text}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          onChange={(e) => setText(e.target.value)}
+          className="border rounded-full px-5 py-3 flex-1 outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Type a message..."
+        />
+        <button
+          onClick={sendMessage}
+          className="bg-blue-600 text-white px-6 rounded-full font-bold hover:bg-blue-700 transition"
+        >
+          Send
+        </button>
+      </div>
     </div>
   );
 }

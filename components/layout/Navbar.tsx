@@ -37,7 +37,7 @@ export default function Navbar() {
   const navItems = [
     { title: "Lounge", href: "/dashboard/buyer", icon: "FiLayout" },
     { title: "Wishlist", href: "/saved", icon: "FiHeart" },
-    { title: "Messages", href: "/chat", icon: "FiMessageSquare" },
+    { title: "Messages", href: "/messages", icon: "FiMessageSquare" },
   ];
 
   return (

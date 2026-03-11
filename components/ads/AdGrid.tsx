@@ -11,6 +11,8 @@ type Ad = {
   price: number;
   locationName: string;
   images: string[];
+  views: number;   // ⭐ added
+  chats: number;   // ⭐ added
 };
 
 type Props = {
@@ -70,7 +72,6 @@ export default function AdGrid({
 
     let url = "/ads";
 
-    // ⭐ Wishlist
     if (type === "saved") {
       url = "/ads/saved";
     }
@@ -79,7 +80,6 @@ export default function AdGrid({
       .get(url, { params })
       .then((res) => {
 
-        // saved API returns array directly
         let fetched = type === "saved" ? res.data : res.data.ads;
 
         if (limit) fetched = fetched.slice(0, limit);
@@ -131,6 +131,7 @@ export default function AdGrid({
           }`}
         >
 
+          {/* IMAGE */}
           <div className="h-36 bg-gray-100">
             <Image
               src={ad.images?.[0] || "/placeholder.png"}
@@ -141,6 +142,7 @@ export default function AdGrid({
             />
           </div>
 
+          {/* CONTENT */}
           <div className="p-4 space-y-1">
 
             <p className="text-green-600 font-bold text-lg">
@@ -154,6 +156,19 @@ export default function AdGrid({
             <p className="text-xs text-gray-500">
               {ad.locationName}
             </p>
+
+            {/* ⭐ VIEWS & CHATS */}
+            <div className="flex justify-between text-xs text-gray-400 pt-2 border-t mt-2">
+
+              <span>
+                👁 {ad.views || 0}
+              </span>
+
+              <span>
+                💬 {ad.chats || 0}
+              </span>
+
+            </div>
 
           </div>
 

@@ -24,13 +24,25 @@ const AdSchema = new mongoose.Schema(
 
     images: { type: [String], default: [] },
 
-    // ⭐ ADD THIS
+    // ⭐ Saved ads
     savedBy: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
+    // ⭐ NEW FIELD: Views counter
+    views: {
+      type: Number,
+      default: 0,
+    },
+
+    // ⭐ NEW FIELD: Chat counter
+    chats: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

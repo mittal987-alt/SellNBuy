@@ -4,25 +4,42 @@ import { getUserFromToken } from "@/lib/auth";
 import Ad from "@/models/Ad";
 
 /* =========================================================
-    GET SINGLE AD
+    GET SINGLE AD + INCREASE VIEWS
 ========================================================= */
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+
     await connectDB();
+
     const { id } = await context.params;
-    const ad = await Ad.findById(id).populate("user", "name email");
+
+    // ⭐ Increase views automatically
+    const ad = await Ad.findByIdAndUpdate(
+      id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).populate("user", "name email");
 
     if (!ad) {
-      return NextResponse.json({ message: "Ad not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Ad not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(ad);
+
   } catch (error) {
+
     console.error("GET AD ERROR:", error);
-    return NextResponse.json({ message: "Failed to fetch ad" }, { status: 500 });
+
+    return NextResponse.json(
+      { message: "Failed to fetch ad" },
+      { status: 500 }
+    );
   }
 }
 
@@ -34,48 +51,90 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+
     await connectDB();
+
     const user = await getUserFromToken();
-    if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    if (!user)
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
 
     const { id } = await context.params;
+
     const ad = await Ad.findById(id);
 
-    if (!ad) return NextResponse.json({ message: "Ad not found" }, { status: 404 });
-    if (ad.user.toString() !== user.id) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!ad)
+      return NextResponse.json(
+        { message: "Ad not found" },
+        { status: 404 }
+      );
+
+    if (ad.user.toString() !== user.id)
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
 
     await Ad.findByIdAndDelete(id);
-    return NextResponse.json({ message: "Ad deleted successfully" });
+
+    return NextResponse.json({
+      message: "Ad deleted successfully",
+    });
+
   } catch (error) {
-    return NextResponse.json({ message: "Delete failed" }, { status: 500 });
+
+    console.error("DELETE ERROR:", error);
+
+    return NextResponse.json(
+      { message: "Delete failed" },
+      { status: 500 }
+    );
   }
 }
 
 /* =========================================================
-    UPDATE AD (FIXED)
+    UPDATE AD
 ========================================================= */
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+
     await connectDB();
+
     const user = await getUserFromToken();
 
     if (!user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const { id } = await context.params;
+
     const body = await req.json();
 
-    // 1. Ownership check
     const ad = await Ad.findById(id);
-    if (!ad) return NextResponse.json({ message: "Ad not found" }, { status: 404 });
-    if (ad.user.toString() !== user.id) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
-    // 2. Construct dynamic update object
+    if (!ad)
+      return NextResponse.json(
+        { message: "Ad not found" },
+        { status: 404 }
+      );
+
+    if (ad.user.toString() !== user.id)
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+
     const updateData: any = {};
+
     if (body.title !== undefined) updateData.title = body.title;
     if (body.price !== undefined) updateData.price = body.price;
     if (body.description !== undefined) updateData.description = body.description;
@@ -84,7 +143,6 @@ export async function PUT(
     if (body.yearsUsed !== undefined) updateData.yearsUsed = body.yearsUsed;
     if (body.locationName !== undefined) updateData.locationName = body.locationName;
 
-    // 3. Handle Coordinates (Only update if both lat/lng are sent)
     if (body.lat !== undefined && body.lng !== undefined) {
       updateData.location = {
         type: "Point",
@@ -92,16 +150,18 @@ export async function PUT(
       };
     }
 
-    // 4. Use findByIdAndUpdate to avoid validation errors for "missing" required fields
     const updatedAd = await Ad.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true, runValidators: true } // runValidators ensures the SENT data is valid
+      { new: true, runValidators: true }
     );
 
     return NextResponse.json(updatedAd);
+
   } catch (error: any) {
+
     console.error("UPDATE ERROR:", error);
+
     return NextResponse.json(
       { message: error.message || "Update failed" },
       { status: 500 }

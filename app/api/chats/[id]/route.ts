@@ -17,14 +17,14 @@ export async function GET(
     if (!user)
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    // ⭐ MUST AWAIT PARAMS
     const { id } = await context.params;
 
     const chat = await Chat.findById(id);
     if (!chat)
       return NextResponse.json({ message: "Chat not found" }, { status: 404 });
 
-    const messages = await Message.find({ chat: id }).sort({ createdAt: 1 });
+    // FIX: Changed 'chat' to 'chatId' to match your Message model
+    const messages = await Message.find({ chatId: id }).sort({ createdAt: 1 });
 
     return NextResponse.json(messages);
 
@@ -50,16 +50,25 @@ export async function POST(
     const { id } = await context.params;
     const { text } = await req.json();
 
+    if (!text) {
+        return NextResponse.json({ message: "Text is required" }, { status: 400 });
+    }
+
+    // FIX: Changed 'chat' to 'chatId' to satisfy the Mongoose ValidatorError
     const message = await Message.create({
-      chat: id,
+      chatId: id,
       sender: user.id,
       text,
     });
 
+    // OPTIONAL: Update the Chat model so the list view shows the latest message
+    await Chat.findByIdAndUpdate(id, { lastMessage: text });
+
     return NextResponse.json(message);
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("SEND MESSAGE ERROR:", err);
-    return NextResponse.json({ message: "Send failed" }, { status: 500 });
+    // Returning the specific error message helps you debug validation issues
+    return NextResponse.json({ message: err.message || "Send failed" }, { status: 500 });
   }
 }

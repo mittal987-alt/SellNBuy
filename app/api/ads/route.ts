@@ -11,6 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 /* =========================================================
    GET ADS (FILTER + SEARCH + NEARBY + PAGINATION)
 ========================================================= */
+
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     const filter: any = {};
     const geoFilter: any = {};
 
-    /* ================= SEARCH ================= */
+    /* SEARCH */
 
     if (search) {
       filter.title = { $regex: search, $options: "i" };
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       filter.category = category;
     }
 
-    /* ================= PRICE FILTER ================= */
+    /* PRICE FILTER */
 
     if (min || max) {
       filter.price = {};
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       if (max) filter.price.$lte = Number(max);
     }
 
-    /* ================= GEO FILTER ================= */
+    /* GEO FILTER */
 
     if (lat && lng && radius) {
       geoFilter.location = {
@@ -66,19 +67,17 @@ export async function GET(req: NextRequest) {
             type: "Point",
             coordinates: [Number(lng), Number(lat)],
           },
-          $maxDistance: Number(radius) * 1000, // km → meters
+          $maxDistance: Number(radius) * 1000,
         },
       };
     }
-
-    /* ================= QUERY ================= */
 
     let query = Ad.find({
       ...filter,
       ...geoFilter,
     });
 
-    /* ================= SORT ================= */
+    /* SORT */
 
     if (sort === "price_low") {
       query = query.sort({ price: 1 });
@@ -88,14 +87,10 @@ export async function GET(req: NextRequest) {
       query = query.sort({ createdAt: -1 });
     }
 
-    /* ================= FETCH ADS ================= */
-
     const ads = await query
       .skip((page - 1) * limit)
       .limit(limit)
       .populate("user", "name email");
-
-    /* ================= COUNT (WITHOUT GEO FILTER) ================= */
 
     const total = await Ad.countDocuments(filter);
 
@@ -128,10 +123,7 @@ export async function POST(req: Request) {
     const token = cookieStore.get("token")?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const user: any = jwt.verify(token, JWT_SECRET);
@@ -150,16 +142,12 @@ export async function POST(req: Request) {
       images,
     } = body;
 
-    /* ================= VALIDATION ================= */
-
     if (!lat || !lng) {
       return NextResponse.json(
         { message: "Latitude and Longitude required" },
         { status: 400 }
       );
     }
-
-    /* ================= CREATE AD ================= */
 
     const ad = await Ad.create({
       title,
@@ -176,20 +164,16 @@ export async function POST(req: Request) {
       },
 
       user: user.id || user._id,
+
+      // ⭐ initialize counters
+      views: 0,
+      chats: 0,
     });
 
     return NextResponse.json(ad, { status: 201 });
 
   } catch (error: any) {
-
     console.error("CREATE AD ERROR:", error);
-
-    if (error.name === "ValidationError") {
-      return NextResponse.json(
-        { message: error.message },
-        { status: 400 }
-      );
-    }
 
     return NextResponse.json(
       { message: "Internal Server Error" },
