@@ -14,14 +14,16 @@ export async function POST(req: Request) {
 
   // Check existing chat
   let chat = await Chat.findOne({
-    ad: adId,
-    participants: { $all: [user.id, sellerId] },
+    adId: adId,
+    buyer: user.id,
+    seller: sellerId,
   });
 
   if (!chat) {
     chat = await Chat.create({
-      ad: adId,
-      participants: [user.id, sellerId],
+      adId: adId,
+      buyer: user.id,
+      seller: sellerId,
     });
   }
 

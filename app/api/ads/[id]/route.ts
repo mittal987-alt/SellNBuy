@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromToken } from "@/lib/auth";
 import Ad from "@/models/Ad";
+import { checkListingForFraud } from "@/lib/fraudDetection";
 
 /* =========================================================
     GET SINGLE AD + INCREASE VIEWS
@@ -149,6 +150,17 @@ export async function PUT(
         coordinates: [Number(body.lng), Number(body.lat)],
       };
     }
+
+    // 🕵️‍♂️ RE-RUN FRAUD DETECTION ON UPDATE
+    const fraudResult = checkListingForFraud({
+      title: body.title !== undefined ? body.title : ad.title,
+      description: body.description !== undefined ? body.description : ad.description,
+      price: body.price !== undefined ? Number(body.price) : ad.price,
+      category: body.category !== undefined ? body.category : ad.category,
+      images: body.images !== undefined ? body.images : ad.images,
+    });
+
+    updateData.status = fraudResult.status;
 
     const updatedAd = await Ad.findByIdAndUpdate(
       id,

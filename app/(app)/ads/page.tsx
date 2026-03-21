@@ -14,7 +14,8 @@ type Ad = {
   _id: string;
   title: string;
   price: number;
-  location: string;
+  location: string;       // GeoJSON object — not rendered
+  locationName: string;   // human-readable city/area name
   images: string[];
 };
 
@@ -182,7 +183,7 @@ export default function AdsPage() {
                         <h3 className="font-bold text-slate-600 truncate group-hover:text-blue-600 transition-colors uppercase tracking-tight text-sm">{ad.title}</h3>
                         <div className="flex items-center gap-1.5 text-slate-400 pt-2 border-t border-slate-50 mt-3">
                           <FiMapPin className="text-blue-500" size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{ad.location}</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">{ad.locationName || "—"}</span>
                         </div>
                       </div>
                     </Link>

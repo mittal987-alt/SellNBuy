@@ -17,5 +17,6 @@ export default function DynamicIcon({ iconName, className = "" }: DynamicIconPro
     { ssr: false }
   );
 
-  return <Icon className={className} aria-hidden />;
+  const IconComponent = Icon as any;
+  return <IconComponent className={className} aria-hidden />;
 }

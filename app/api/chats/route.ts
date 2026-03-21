@@ -16,25 +16,14 @@ export async function GET() {
     }
 
     const chats = await Chat.find({
-      participants: user.id,
+      $or: [{ buyer: user.id }, { seller: user.id }]
     })
-      .populate("ad", "title images price")
-      .populate("participants", "name email")
+      .populate("adId", "title images price")
+      .populate("buyer", "name email")
+      .populate("seller", "name email")
       .sort({ updatedAt: -1 });
 
-    const formattedChats = chats.map((chat: any) => {
-      const otherUser = chat.participants.find(
-        (p: any) => p._id.toString() !== user.id
-      );
-
-      return {
-        _id: chat._id,
-        ad: chat.ad,
-        otherUser,
-      };
-    });
-
-    return NextResponse.json(formattedChats);
+    return NextResponse.json(chats);
 
   } catch (error) {
     console.error("CHAT LIST ERROR:", error);

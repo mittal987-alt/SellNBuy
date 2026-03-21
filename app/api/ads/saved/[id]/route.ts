@@ -140,3 +140,59 @@ export async function DELETE(
     return NextResponse.json({ message: "Failed to delete ad" }, { status: 500 });
   }
 }
+
+/* =========================================================
+   TOGGLE SAVE AD (POST)
+========================================================= */
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+
+    const user = await getUserFromToken();
+
+    if (!user) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: adId } = await context.params;
+
+    const ad = await Ad.findById(adId);
+
+    if (!ad) {
+      return NextResponse.json({ message: "Ad not found" }, { status: 404 });
+    }
+
+    const userId = user.id.toString();
+
+    const alreadySaved =
+      ad.savedBy?.some((uid: any) => uid.toString() === userId) || false;
+
+    if (alreadySaved) {
+      await Ad.updateOne(
+        { _id: adId },
+        { $pull: { savedBy: userId } }
+      );
+    } else {
+      await Ad.updateOne(
+        { _id: adId },
+        { $addToSet: { savedBy: userId } }
+      );
+    }
+
+    return NextResponse.json({
+      saved: !alreadySaved,
+    });
+
+  } catch (error) {
+    console.error("SAVE ERROR:", error);
+
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

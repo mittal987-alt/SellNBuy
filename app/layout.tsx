@@ -1,6 +1,7 @@
 import "./globals.css";
 import ThemeProvider from "@/components/providers/ThemeProvider";
 import AuthProvider from "@/components/providers/AuthProvider";
+import NotificationProvider from "@/components/providers/NotificationProvider";
 
 export default function RootLayout({
   children,
@@ -12,7 +13,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <NotificationProvider>
+              {children}
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -1,109 +1,44 @@
-export const runtime = "nodejs";
-
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
 import { connectDB } from "@/lib/db";
 import Ad from "@/models/Ad";
+import { checkListingForFraud } from "@/lib/fraudDetection";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+export const runtime = "nodejs";
 
-/* =========================================================
-   GET ADS (FILTER + SEARCH + NEARBY + PAGINATION)
-========================================================= */
-
+/* ===================== GET ===================== */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
 
-    const search = searchParams.get("search");
-    const city = searchParams.get("city");
-    const min = searchParams.get("min");
-    const max = searchParams.get("max");
-    const category = searchParams.get("category");
-    const sort = searchParams.get("sort");
-
-    const lat = searchParams.get("lat");
-    const lng = searchParams.get("lng");
-    const radius = searchParams.get("radius");
-
-    const page = Number(searchParams.get("page")) || 1;
-    const limit = 8;
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category") || "";
 
     const filter: any = {};
-    const geoFilter: any = {};
 
-    /* SEARCH */
-
-    if (search) {
+    if (search.trim() !== "") {
       filter.title = { $regex: search, $options: "i" };
     }
 
-    if (city) {
-      filter.locationName = { $regex: city, $options: "i" };
-    }
-
-    if (category) {
+    if (category && category !== "all") {
       filter.category = category;
     }
 
-    /* PRICE FILTER */
+    // ✅ Always default to ACTIVE ads unless specified otherwise
+    filter.status = { $ne: "spam" }; 
 
-    if (min || max) {
-      filter.price = {};
-
-      if (min) filter.price.$gte = Number(min);
-      if (max) filter.price.$lte = Number(max);
-    }
-
-    /* GEO FILTER */
-
-    if (lat && lng && radius) {
-      geoFilter.location = {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: [Number(lng), Number(lat)],
-          },
-          $maxDistance: Number(radius) * 1000,
-        },
-      };
-    }
-
-    let query = Ad.find({
-      ...filter,
-      ...geoFilter,
-    });
-
-    /* SORT */
-
-    if (sort === "price_low") {
-      query = query.sort({ price: 1 });
-    } else if (sort === "price_high") {
-      query = query.sort({ price: -1 });
-    } else {
-      query = query.sort({ createdAt: -1 });
-    }
-
-    const ads = await query
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate("user", "name email");
-
-    const total = await Ad.countDocuments(filter);
+    const ads = await Ad.find(filter)
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
 
     return NextResponse.json({
       ads,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      total: ads.length,
     });
 
-  } catch (error) {
-    console.error("GET ADS ERROR:", error);
-
+  } catch (err) {
+    console.error("ADS ERROR:", err);
     return NextResponse.json(
       { message: "Failed to fetch ads" },
       { status: 500 }
@@ -111,72 +46,68 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/* =========================================================
-   CREATE AD
-========================================================= */
-
-export async function POST(req: Request) {
+/* ===================== POST ===================== */
+export async function POST(req: NextRequest) {
   try {
     await connectDB();
-
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const user: any = jwt.verify(token, JWT_SECRET);
 
     const body = await req.json();
 
     const {
       title,
       price,
-      description,
-      location: locationName,
+      location,
       category,
-      yearsUsed,
-      lat,
-      lng,
       images,
+      userId,
+      lat,
+      lng
     } = body;
 
-    if (!lat || !lng) {
+    // 🔥 VALIDATION
+    if (!title || !price || !location || !category || !lat || !lng || !userId) {
       return NextResponse.json(
-        { message: "Latitude and Longitude required" },
+        { message: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const ad = await Ad.create({
+    // 🕵️‍♂️ RUN FRAUD DETECTION
+    const fraudResult = checkListingForFraud({
       title,
+      description: body.description || "",
       price: Number(price),
-      description,
-      locationName,
       category,
-      yearsUsed: Number(yearsUsed) || 0,
-      images,
-
-      location: {
-        type: "Point",
-        coordinates: [Number(lng), Number(lat)],
-      },
-
-      user: user.id || user._id,
-
-      // ⭐ initialize counters
-      views: 0,
-      chats: 0,
+      images: images || [],
     });
 
-    return NextResponse.json(ad, { status: 201 });
+    const newAd = await Ad.create({
+      title,
+      price,
+      category,
+      images: images || [],
+      user: userId,
+      description: body.description || "",
+      status: fraudResult.status,
 
-  } catch (error: any) {
-    console.error("CREATE AD ERROR:", error);
+      // ✅ GEO LOCATION
+      location: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+
+      locationName: location,
+    });
 
     return NextResponse.json(
-      { message: "Internal Server Error" },
+      { message: "Ad created successfully", ad: newAd },
+      { status: 201 }
+    );
+
+  } catch (err) {
+    console.error("POST ADS ERROR:", err);
+    return NextResponse.json(
+      { message: "Failed to publish ad" },
       { status: 500 }
     );
   }

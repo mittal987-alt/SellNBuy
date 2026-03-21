@@ -11,6 +11,10 @@ import {
   FiGrid, FiCheck, FiInfo, FiX, FiHeart, FiLoader
 } from "react-icons/fi";
 
+// Note: Ensure you are getting the real user ID from your auth session
+// Example with NextAuth: const { data: session } = useSession();
+const MOCK_USER_ID = "65f123abc456def789012345"; 
+
 export default function CreateAdPage() {
   const router = useRouter();
 
@@ -18,11 +22,11 @@ export default function CreateAdPage() {
     title: "",
     price: "",
     description: "",
-    location: "", // This is the string (City name)
+    location: "", 
     category: "",
     yearsUsed: "",
-    lat: null as number | null, // Added for backend validation
-    lng: null as number | null, // Added for backend validation
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -30,7 +34,7 @@ export default function CreateAdPage() {
   const [uploading, setUploading] = useState(false);
   const [locating, setLocating] = useState(false);
 
-  // --- 📍 GEOLOCATION LOGIC ---
+  // --- 📍 GEOLOCATION ---
   const getDeviceLocation = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser");
@@ -39,21 +43,37 @@ export default function CreateAdPage() {
 
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setForm(prev => ({
-          ...prev,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        }));
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        setForm(prev => ({ ...prev, lat, lng }));
+
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const addr = data.address ?? {};
+          const displayName = addr.city || addr.town || addr.village || addr.state || "Unknown Location";
+
+          setForm(prev => ({ ...prev, location: displayName }));
+        } catch {
+          console.warn("Reverse geocode failed");
+        }
         setLocating(false);
       },
       (error) => {
-        console.error("Location error:", error);
         setLocating(false);
-        alert("Please enable location permissions to post an ad.");
+        alert("Please enable location permissions.");
       }
     );
   };
+
+  useEffect(() => {
+    getDeviceLocation();
+  }, []);
 
   const handleImageUpload = async (files: FileList) => {
     setUploading(true);
@@ -69,33 +89,38 @@ export default function CreateAdPage() {
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
   // --- 🚀 SUBMIT LOGIC ---
   const handleSubmit = async () => {
-    // Basic Field Validation
+    // Matches Backend Requirement: !title || !price || !location || !category || !lat || !lng || !userId
     if (!form.title || !form.price || !form.location || !form.category) {
       alert("Please fill required fields");
       return;
     }
 
-    // Coordinate Validation (Required by your Backend)
     if (!form.lat || !form.lng) {
-      alert("We need your GPS coordinates to show your ad to nearby buyers.");
+      alert("GPS coordinates are required to publish.");
       getDeviceLocation();
       return;
     }
 
     try {
       setLoading(true);
+      
+      // Sending payload exactly as destructured in the backend POST route
       await api.post("/ads", {
-        ...form,
+        title: form.title,
         price: Number(form.price),
+        location: form.location, // String name (locationName in DB)
+        category: form.category,
+        images: images,
+        userId: MOCK_USER_ID, // Replace with session.user.id
+        lat: form.lat,
+        lng: form.lng,
+        // Optional fields your model might have
+        description: form.description,
         yearsUsed: Number(form.yearsUsed) || 0,
-        images,
       });
+
       router.push("/dashboard/seller");
       router.refresh();
     } catch (err: any) {
@@ -109,7 +134,7 @@ export default function CreateAdPage() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-slate-900 pb-20">
       
-      {/* 🌌 HEADER */}
+      {/* HEADER */}
       <div className="max-w-7xl mx-auto px-8 py-10 flex items-center justify-between">
         <Link href="/dashboard/seller" className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors">
           <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" /> Exit Studio
@@ -123,9 +148,8 @@ export default function CreateAdPage() {
 
       <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-16">
         
-        {/* --- 📝 FORM SECTION --- */}
+        {/* FORM SECTION */}
         <div className="lg:col-span-7 space-y-12">
-          
           <section className="space-y-6">
             <div className="flex items-center gap-3 mb-8">
                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">01</div>
@@ -136,7 +160,6 @@ export default function CreateAdPage() {
               <PremiumInput label="Listing Title" placeholder="e.g. iPhone 15 Pro Max" value={form.title} onChange={(v: string) => setForm({...form, title: v})} icon={<FiTag />} />
               <PremiumInput label="Price (₹)" type="number" placeholder="0.00" value={form.price} onChange={(v: string) => setForm({...form, price: v})} icon={<span className="font-bold text-xs">₹</span>} />
               
-              {/* --- LOCATION INPUT WITH GPS TRIGGER --- */}
               <div className="relative">
                 <PremiumInput 
                     label="Location Name" 
@@ -148,10 +171,13 @@ export default function CreateAdPage() {
                 <button 
                     onClick={getDeviceLocation}
                     type="button"
-                    className="absolute right-4 bottom-4 text-[9px] font-black uppercase tracking-tighter text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    disabled={locating}
+                    className={`absolute right-4 bottom-4 text-[9px] font-black uppercase tracking-tighter flex items-center gap-1 transition-colors ${
+                      form.lat ? "text-emerald-600" : "text-blue-600"
+                    }`}
                 >
-                    {locating ? <FiLoader className="animate-spin" /> : <FiMapPin />}
-                    {form.lat ? "Location Set" : "Get GPS"}
+                    {locating ? <FiLoader className="animate-spin" /> : form.lat ? <FiCheck /> : <FiMapPin />}
+                    {locating ? "Locating…" : form.lat ? "Location Detected" : "Get GPS"}
                 </button>
               </div>
 
@@ -174,7 +200,7 @@ export default function CreateAdPage() {
             </div>
           </section>
 
-          {/* STEP 2: MEDIA */}
+          {/* MEDIA */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 mb-8">
                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">02</div>
@@ -192,7 +218,6 @@ export default function CreateAdPage() {
                    <FiCamera size={24} />
                 </div>
                 <p className="font-black text-slate-900 uppercase text-[10px] tracking-widest">Click or Drag to Upload</p>
-                <p className="text-slate-400 text-xs mt-2 font-medium">PNG, JPG or WEBP (Max 5MB per file)</p>
               </div>
             </div>
 
@@ -200,8 +225,8 @@ export default function CreateAdPage() {
               <AnimatePresence>
                 {images.map((img, i) => (
                   <motion.div key={i} layout initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative aspect-square rounded-2xl overflow-hidden group">
-                    <Image src={img} width={200} height={200} className="w-full h-full object-cover" alt="" />
-                    <button onClick={() => removeImage(i)} className="absolute top-2 right-2 p-1 bg-white rounded-full text-rose-500 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Image src={img} fill className="object-cover" alt="" />
+                    <button onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 bg-white rounded-full text-rose-500 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
                       <FiX size={14} />
                     </button>
                   </motion.div>
@@ -211,7 +236,7 @@ export default function CreateAdPage() {
           </section>
         </div>
 
-        {/* --- 🖼️ PREVIEW SECTION --- */}
+        {/* PREVIEW */}
         <div className="lg:col-span-5">
             <div className="sticky top-10 space-y-8">
               <div className="bg-slate-900 rounded-[3rem] p-10 text-white overflow-hidden relative">
@@ -220,7 +245,7 @@ export default function CreateAdPage() {
                  
                  <div className="bg-white rounded-[2rem] p-4 text-slate-900 shadow-2xl">
                     <div className="aspect-[4/3] bg-slate-100 rounded-2xl overflow-hidden mb-4 relative">
-                       {images[0] ? <Image src={images[0]} width={400} height={300} className="w-full h-full object-cover" alt="Product preview" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FiCamera size={32} /></div>}
+                       {images[0] ? <Image src={images[0]} fill className="object-cover" alt="Product preview" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FiCamera size={32} /></div>}
                        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md p-2 rounded-full text-rose-500 shadow-sm"><FiHeart fill="currentColor" size={12}/></div>
                     </div>
                     <div className="px-1 space-y-1">
@@ -237,33 +262,24 @@ export default function CreateAdPage() {
                     disabled={loading || uploading || locating}
                     className="w-full mt-10 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900 transition-all flex items-center justify-center gap-3"
                  >
-                    {loading ? "Publishing Listing..." : <><FiCheck /> Launch Ad</>}
+                    {loading ? "Publishing..." : <><FiCheck /> Launch Ad</>}
                  </button>
               </div>
 
               <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex gap-4">
                  <FiInfo className="text-blue-600 mt-1 shrink-0" />
                  <p className="text-xs font-medium text-blue-800 leading-relaxed">
-                   Ads with precise location data are <b>prioritized</b> in local search results. Ensure GPS is enabled!
+                    Ads with precise location data are <b>prioritized</b>.
                  </p>
               </div>
             </div>
         </div>
-
       </div>
     </div>
   );
 }
 
-interface PremiumInputProps {
-  label: string;
-  icon: React.ReactNode;
-  value: string;
-  onChange: (value: string) => void;
-  [key: string]: any;
-}
-
-function PremiumInput({ label, icon, value, onChange, ...props }: PremiumInputProps) {
+function PremiumInput({ label, icon, value, onChange, ...props }: any) {
   return (
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">{label}</label>
@@ -275,7 +291,7 @@ function PremiumInput({ label, icon, value, onChange, ...props }: PremiumInputPr
           {...props} 
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full pl-12 pr-6 py-4 rounded-2xl bg-white border border-slate-100 shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-200 transition-all font-bold placeholder:font-medium placeholder:text-slate-300" 
+          className="w-full pl-12 pr-6 py-4 rounded-2xl bg-white border border-slate-100 shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold placeholder:font-medium placeholder:text-slate-300" 
         />
       </div>
     </div>

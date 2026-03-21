@@ -1,57 +1,140 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdGrid from "@/components/ads/AdGrid";
-import {
-  FiNavigation, FiSearch
-} from "react-icons/fi";
+import { FiNavigation, FiSearch, FiX } from "react-icons/fi";
+
+const CATEGORIES = [
+  { id: "all", label: "All", emoji: "🌐" },
+  { id: "Electronics", label: "Electronics", emoji: "📱" },
+  { id: "Vehicles", label: "Vehicles", emoji: "🚗" },
+  { id: "Furniture", label: "Furniture", emoji: "🪑" },
+  { id: "Fashion", label: "Fashion", emoji: "👗" },
+  { id: "Books", label: "Books", emoji: "📚" },
+  { id: "Sports", label: "Sports", emoji: "⚽" },
+  { id: "Real Estate", label: "Real Estate", emoji: "🏠" },
+  { id: "Other", label: "Other", emoji: "📦" },
+];
+
+function PulseDot() {
+  return (
+    <span className="relative flex h-3 w-3">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+    </span>
+  );
+}
 
 export default function NearbyPage() {
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+
+  const [coords, setCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  const [loadingLocation, setLoadingLocation] = useState(true);
+
+  // 📍 GET USER LOCATION
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setLoadingLocation(false);
+      },
+      () => {
+        setLoadingLocation(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] text-slate-900 selection:bg-blue-100">
-      
-      <div className="max-w-[1700px] mx-auto px-8 py-12">
-        
-        {/* 🔍 SEARCH BAR */}
-        <div className="relative group mb-12">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-[2.5rem] blur opacity-50 group-hover:opacity-100 transition duration-1000"></div>
-          <div className="relative flex flex-col xl:flex-row items-center justify-between gap-8 bg-white p-10 rounded-[2.5rem] border-2 border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)]">
+    <div className="min-h-screen bg-[#FDFDFD] text-slate-900">
+      <div className="max-w-[1400px] mx-auto px-6 py-10">
+
+        {/* HEADER */}
+        <div className="bg-white p-6 rounded-2xl border-2 border-black mb-8 shadow">
+          <div className="flex flex-col md:flex-row justify-between gap-4">
+
             <div>
-              <h1 className="text-5xl font-black tracking-tighter text-slate-900 flex items-center gap-4">
-                <FiNavigation className="text-emerald-600" />
-                Nearby Ads
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <FiNavigation /> Nearby Ads
               </h1>
-              <p className="text-slate-500 font-medium mt-2">Discover products within 100 meters of your location.</p>
+
+              <p className="text-sm mt-2 text-gray-500">
+                {coords ? (
+                  <span className="text-green-600 font-semibold flex items-center gap-2">
+                    <PulseDot /> Using your GPS location
+                  </span>
+                ) : loadingLocation ? (
+                  "Detecting your location..."
+                ) : (
+                  "Location permission denied"
+                )}
+              </p>
             </div>
-            <div className="relative w-full xl:max-w-md">
-              <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-900" size={22} />
+
+            {/* SEARCH */}
+            <div className="relative w-full md:max-w-sm">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search nearby ads..."
+                placeholder="Search nearby..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-slate-50 border-2 border-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 font-black text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-10 pr-10 py-3 border-2 border-black rounded-xl"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <FiX />
+                </button>
+              )}
             </div>
+
           </div>
         </div>
 
-        {/* 🌟 NEARBY ADS SECTION */}
-        <section className="relative group p-10 rounded-[3.5rem] bg-emerald-50/50 border border-emerald-100 shadow-[0_20px_50px_rgba(0,0,0,0.03)] transition-all duration-500 hover:shadow-[0_30px_60px_rgba(0,0,0,0.06)] hover:bg-white">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
-                <FiNavigation className="text-emerald-600" />
-              </div>
-              <h2 className="text-3xl font-black tracking-tighter">Ads Near You</h2>
-            </div>
-          </div>
-          <div className="relative z-10">
-            <AdGrid search={search} type="nearby" hoverEffect="lift" />
-          </div>
-        </section>
+        {/* CATEGORY */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setCategory(cat.id)}
+              className={`px-4 py-2 rounded-full border-2 ${
+                category === cat.id
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-600"
+              }`}
+            >
+              {cat.emoji} {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ADS */}
+        {coords && (
+          <AdGrid
+            search={search}
+            category={category}
+            type="nearby"
+            lat={coords.lat}
+            lng={coords.lng}
+          />
+        )}
+
+        {!coords && !loadingLocation && (
+          <p className="text-red-500">
+            Please allow location to see nearby ads
+          </p>
+        )}
 
       </div>
     </div>

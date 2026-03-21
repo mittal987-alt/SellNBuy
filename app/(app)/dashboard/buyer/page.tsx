@@ -1,23 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import api from "@/lib/api";
+import { socket } from "@/lib/socket";
+import { useUserStore } from "@/store/userStore";
 import AdGrid from "@/components/ads/AdGrid";
+
 import {
   FiHeart, FiStar, FiMonitor, FiTruck, FiHome, 
-  FiShoppingBag, FiSearch, FiZap, FiNavigation, FiArrowRight
+  FiShoppingBag, FiSearch, FiZap, FiNavigation, FiArrowRight, FiMessageCircle
 
 } from "react-icons/fi";
 
 export default function BuyerDashboard() {
   const [search, setSearch] = useState("");
+  const [chats, setChats] = useState<any[]>([]);
+  const { user } = useUserStore();
+  const userId = user?.id;
 
-  const categories = [
-    { name: "Electronics", icon: FiMonitor, color: "text-blue-600", bg: "bg-blue-50" },
-    { name: "Vehicles", icon: FiTruck, color: "text-indigo-600", bg: "bg-indigo-50" },
-    { name: "Real Estate", icon: FiHome, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { name: "Fashion", icon: FiShoppingBag, color: "text-rose-600", bg: "bg-rose-50" },
-  ];
+  useEffect(() => {
+    const fetchBuyerChats = async () => {
+      try {
+        const chatsRes = await api.get("/chats");
+        const buyerChats = chatsRes.data.filter((c: any) => c.buyer?._id === userId);
+        setChats(buyerChats);
+      } catch (err) { console.error(err); }
+    };
+    fetchBuyerChats();
+
+    if (userId) {
+      socket.connect();
+      socket.emit("register_user", userId);
+
+      const handleNewNotification = (data: any) => {
+        setChats((prev) => {
+          const chatExists = prev.find((c) => c._id === data.chatId);
+          if (chatExists) {
+            const updatedChats = prev.map((c) => {
+              if (c._id === data.chatId) {
+                return { ...c, lastMessage: data.text };
+              }
+              return c;
+            });
+            const chatToMove = updatedChats.find(c => c._id === data.chatId);
+            const otherChats = updatedChats.filter(c => c._id !== data.chatId);
+            return [chatToMove!, ...otherChats];
+          } else {
+            api.get("/chats").then(res => {
+              const buyerChats = res.data.filter((c: any) => c.buyer?._id === userId);
+              setChats(buyerChats);
+            }).catch(console.error);
+            return prev;
+          }
+        });
+      };
+
+      socket.on("new_notification", handleNewNotification);
+
+      return () => {
+        socket.off("new_notification", handleNewNotification);
+      };
+    }
+  }, [userId]);
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-slate-900 selection:bg-blue-100">
@@ -25,29 +70,56 @@ export default function BuyerDashboard() {
       <div className="max-w-[1700px] mx-auto grid grid-cols-12 gap-10 px-8 py-12">
         
         {/* --- 🏰 SIDEBAR --- */}
-        <aside className="hidden lg:block lg:col-span-2">
-          <div className="sticky top-12 space-y-12">
-            <div className="flex items-center gap-3 px-2">
+        <aside className="hidden lg:block lg:col-span-3">
+          <div className="sticky top-12 flex flex-col h-[calc(100vh-6rem)]">
+            <div className="flex items-center gap-3 px-2 mb-8 shrink-0">
               <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black italic shadow-2xl shadow-slate-900/20">B</div>
               <span className="text-2xl font-black tracking-tighter uppercase">Bazaari</span>
             </div>
 
-            <nav className="space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 px-4 mb-6">Discovery</p>
-              {categories.map((cat) => (
-                <button key={cat.name} className="group flex items-center gap-4 w-full p-4 rounded-2xl transition-all duration-300 hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 border border-transparent hover:border-slate-100">
-                  <div className={`p-2.5 rounded-xl ${cat.bg} transition-transform group-hover:scale-110`}>
-                    <cat.icon className={`${cat.color} text-lg`} />
+            <div className="flex-1 min-h-0 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-50 flex items-center justify-between shrink-0">
+                <h3 className="font-black text-lg text-slate-900 tracking-tight">Recent Chats</h3>
+                <Link href="/messages" className="text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors">
+                  View All
+                </Link>
+              </div>
+              <div className="p-4 flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+                {chats.length > 0 ? chats.map((chat) => {
+                  const otherUser = chat.buyer?._id === userId ? chat.seller : chat.buyer;
+                  return (
+                    <Link key={chat._id} href={`/chats/${chat._id}`}>
+                      <div className="group flex items-center gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-100">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-lg shrink-0">
+                          {otherUser?.name?.[0]?.toUpperCase() || "U"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-1">
+                            <h4 className="font-bold text-slate-900 text-sm truncate">{otherUser?.name || "User"}</h4>
+                          </div>
+                          <p className="text-xs text-slate-400 truncate font-medium">{chat.lastMessage || "Started a conversation"}</p>
+                          {chat.adId && (
+                            <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest mt-1 truncate">
+                              Ad: {chat.adId.title}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                }) : (
+                  <div className="py-20 text-center">
+                    <FiMessageCircle className="mx-auto text-3xl text-slate-200 mb-3" />
+                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No messages yet</p>
                   </div>
-                  <span className="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">{cat.name}</span>
-                </button>
-              ))}
-            </nav>
+                )}
+              </div>
+            </div>
           </div>
         </aside>
 
         {/* --- 🚀 MAIN CONTENT --- */}
-        <main className="col-span-12 lg:col-span-10 space-y-12">
+        <main className="col-span-12 lg:col-span-9 space-y-12">
           
           {/* 🔍 THE BOLD SEARCH BAR */}
           <div className="relative group">
@@ -56,6 +128,11 @@ export default function BuyerDashboard() {
               <div>
                 <h1 className="text-5xl font-black tracking-tighter text-slate-900">The Curation.</h1>
                 <p className="text-slate-500 font-medium mt-2">Premium deals tailored for your lifestyle.</p>
+                
+                <Link href="/price-estimator" className="inline-flex mt-6 group items-center gap-2 bg-blue-600 hover:bg-black text-white px-6 py-3 rounded-2xl transition-all shadow-xl shadow-blue-500/20">
+                  <FiZap className="group-hover:text-amber-400 transition-colors" />
+                  <span className="font-bold text-sm">Smart Price Check</span>
+                </Link>
               </div>
               <div className="relative w-full xl:max-w-md">
                 <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-900" size={22} />
@@ -74,7 +151,8 @@ export default function BuyerDashboard() {
           <div className="space-y-12">
             
             <Section 
-              title="Daily Highlights" 
+              title="Daily Highlights"
+               href="/dashboard/products" 
               icon={<FiStar className="text-blue-600" fill="currentColor" />} 
               bgColor="bg-blue-50/50" 
               borderColor="border-blue-100"
@@ -106,6 +184,7 @@ export default function BuyerDashboard() {
 
             <Section 
               title="Hyper Trending" 
+              href="/dashboard/products"
               icon={<FiZap className="text-amber-500" fill="currentColor" />} 
               bgColor="bg-amber-50/50" 
               borderColor="border-amber-100"
