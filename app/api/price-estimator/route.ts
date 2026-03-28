@@ -1,111 +1,116 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Ad from "@/models/Ad";
-
-export const runtime = "nodejs";
+import { findBenchmark } from "@/lib/market-benchmarks";
 
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
-
     const { searchParams } = new URL(req.url);
     const productName = searchParams.get("productName");
     const condition = searchParams.get("condition") || "good";
-    const yearsUsed = Number(searchParams.get("yearsUsed")) || 0;
+    const yearsUsed = parseInt(searchParams.get("yearsUsed") || "0");
 
     if (!productName) {
-      return NextResponse.json(
-        { message: "Product name is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Product name is required" }, { status: 400 });
     }
 
-    // 1. Search for similar ads (Try exact match first)
-    let similarAds = await Ad.find({
-      title: { $regex: productName, $options: "i" },
-      status: "active",
+    await connectDB();
+
+    // 1. Fetch Similar Ads from Database
+    const similarAds = await Ad.find({
+      $text: { $search: productName },
+      status: "active"
     })
-      .limit(10)
-      .sort({ createdAt: -1 });
+    .limit(4)
+    .select("title price images locationName");
 
-    // Fallback: If no exact matches, try searching for individual words
-    if (similarAds.length === 0) {
-      const words = productName.split(/\s+/).filter(w => w.length > 2);
-      if (words.length > 0) {
-        const regexQuery = words.map(w => `(?=.*${w})`).join("");
-        similarAds = await Ad.find({
-          title: { $regex: regexQuery, $options: "i" },
-          status: "active",
-        })
-          .limit(10)
-          .sort({ createdAt: -1 });
-      }
-    }
-
-    // Second Fallback: Just search for any of the words if multi-word search failed
-    if (similarAds.length === 0) {
-      const words = productName.split(/\s+/).filter(w => w.length > 2);
-      if (words.length > 0) {
-        similarAds = await Ad.find({
-          title: { $regex: words.join("|"), $options: "i" },
-          status: "active",
-        })
-          .limit(10)
-          .sort({ createdAt: -1 });
-      }
-    }
-
-    if (similarAds.length === 0) {
-      return NextResponse.json({
-        message: "Not enough data to provide a suggestion",
-        suggestedPrice: null,
-        averagePrice: null,
-        similarAds: [],
-      });
-    }
-
-    // 2. Calculate average price
-    const totalContentPrice = similarAds.reduce((sum, ad) => sum + ad.price, 0);
-    const averagePrice = totalContentPrice / similarAds.length;
-
-    // 3. Apply Multipliers
-    let conditionMultiplier = 0.85; // Default "good"
-    switch (condition.toLowerCase()) {
-      case "new":
-      case "excellent":
-        conditionMultiplier = 1.0;
-        break;
-      case "good":
-        conditionMultiplier = 0.85;
-        break;
-      case "fair":
-        conditionMultiplier = 0.7;
-        break;
-      case "poor":
-        conditionMultiplier = 0.5;
-        break;
-    }
-
-    // 4. Age Depreciation (5% per year, max 50%)
-    const ageDepreciation = Math.min(0.5, yearsUsed * 0.05);
+    // 2. Fallback to benchmarks if search is too narrow
+    let benchmark = findBenchmark(productName);
     
-    // 5. Calculate Suggested Price
-    const suggestedPrice = Math.round(averagePrice * conditionMultiplier * (1 - ageDepreciation));
+    // 3. AI Insights from Grok (xAI)
+    let suggestedPrice = 0;
+    let minPrice = 0;
+    let maxPrice = 0;
+    let message = "";
+    let dataSource = "platform_data";
+
+    const apiKey = process.env.API_KEY; // Using the key provided in .env.local
+
+    if (apiKey && apiKey.startsWith("xai-")) {
+      try {
+        const aiResponse = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: "grok-beta",
+            messages: [
+              {
+                role: "system",
+                content: "You are a professional market price estimator for a second-hand marketplace. Respond only in JSON format."
+              },
+              {
+                role: "user",
+                content: `Estimate the current market price in INR (₹) for a used "${productName}" in "${condition}" condition, used for ${yearsUsed} years. 
+                Provide:
+                - suggestedPrice (number)
+                - minPrice (number)
+                - maxPrice (number)
+                - summary (string, short description of market trend)
+                - confidence (number 0-1)
+                
+                Respond with EXACTLY this JSON structure: {"suggestedPrice": 0, "minPrice": 0, "maxPrice": 0, "summary": "", "confidence": 0}`
+              }
+            ],
+            temperature: 0,
+            response_format: { type: "json_object" }
+          })
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          const content = JSON.parse(aiData.choices[0].message.content);
+          
+          suggestedPrice = content.suggestedPrice;
+          minPrice = content.minPrice;
+          maxPrice = content.maxPrice;
+          message = content.summary;
+          dataSource = "global_market_insights";
+        }
+      } catch (aiErr) {
+        console.error("AI Estimation Error:", aiErr);
+      }
+    }
+
+    // 4. Fallback Logic if AI fails or no key
+    if (!suggestedPrice && benchmark) {
+      suggestedPrice = benchmark.avgUsed;
+      minPrice = benchmark.minUsed;
+      maxPrice = benchmark.maxUsed;
+      message = "Based on our historical platform benchmarks.";
+      dataSource = "market_benchmark";
+    } else if (!suggestedPrice && similarAds.length > 0) {
+      const prices = similarAds.map(ad => ad.price);
+      suggestedPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+      minPrice = Math.min(...prices);
+      maxPrice = Math.max(...prices);
+      message = "Based on active listings on our platform.";
+    }
 
     return NextResponse.json({
       productName,
-      condition,
-      yearsUsed,
       suggestedPrice,
-      averagePrice: Math.round(averagePrice),
-      similarAds,
+      minPrice,
+      maxPrice,
+      message,
+      dataSource,
+      similarAds
     });
 
-  } catch (err) {
-    console.error("PRICE ESTIMATOR ERROR:", err);
-    return NextResponse.json(
-      { message: "Failed to estimate price" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("Price Estimator Error:", error);
+    return NextResponse.json({ message: error.message || "Failed to estimate price" }, { status: 500 });
   }
 }

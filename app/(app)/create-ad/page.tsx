@@ -8,7 +8,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FiArrowLeft, FiCamera, FiTag, FiMapPin, 
-  FiGrid, FiCheck, FiInfo, FiX, FiHeart, FiLoader
+  FiGrid, FiCheck, FiInfo, FiX, FiHeart, FiLoader, FiZap
 } from "react-icons/fi";
 
 // Note: Ensure you are getting the real user ID from your auth session
@@ -33,6 +33,7 @@ export default function CreateAdPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // --- 📍 GEOLOCATION ---
   const getDeviceLocation = () => {
@@ -86,6 +87,33 @@ export default function CreateAdPage() {
       alert("Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!form.title) {
+      alert("Please enter a title first to generate a description.");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, category: form.category }),
+      });
+      const data = await res.json();
+      if (res.ok && data.description) {
+        setForm(prev => ({ ...prev, description: data.description }));
+      } else {
+        alert(data.message || "Failed to generate description");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error generating description");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -196,6 +224,27 @@ export default function CreateAdPage() {
                     <option value="Property">Property</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-2">
+                <div className="flex items-center justify-between ml-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description</label>
+                  <button 
+                    type="button"
+                    onClick={handleGenerateDescription}
+                    disabled={generating || !form.title}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 disabled:opacity-30 transition-all hover:scale-105"
+                  >
+                    {generating ? <FiLoader className="animate-spin" /> : <FiZap className="fill-current" />}
+                    {generating ? "Generating..." : "Magic Generate"}
+                  </button>
+                </div>
+                <textarea 
+                  placeholder="Tell buyers more about your product..." 
+                  value={form.description} 
+                  onChange={(e) => setForm({...form, description: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl bg-white border border-slate-100 shadow-sm outline-none focus:ring-4 focus:ring-blue-500/5 transition-all font-bold min-h-[160px] resize-none placeholder:font-medium placeholder:text-slate-300"
+                />
               </div>
             </div>
           </section>

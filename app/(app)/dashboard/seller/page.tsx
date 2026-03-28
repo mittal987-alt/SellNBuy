@@ -228,6 +228,19 @@ function StatCard({ label, value, icon, color }: any) {
 }
 
 function PremiumListingCard({ ad, onDelete }: any) {
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case "spam":
+        return { label: "Flagged (Spam)", color: "text-rose-600 bg-rose-50 border-rose-100", icon: <FiActivity className="w-3 h-3" /> };
+      case "pending":
+        return { label: "Under Review", color: "text-amber-600 bg-amber-50 border-amber-100", icon: <FiClock className="w-3 h-3" /> };
+      default:
+        return { label: "Active", color: "text-emerald-600 bg-emerald-50 border-emerald-100", icon: <FiActivity className="w-3 h-3" /> };
+    }
+  };
+
+  const statusInfo = getStatusInfo(ad.status);
+
   return (
     <motion.div
       layout
@@ -248,7 +261,13 @@ function PremiumListingCard({ ad, onDelete }: any) {
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start">
           <div className="min-w-0">
-            <h3 className="text-xl font-black text-slate-900 truncate pr-4 tracking-tight">{ad.title}</h3>
+            <div className="flex items-center gap-3 mb-1">
+               <h3 className="text-xl font-black text-slate-900 truncate tracking-tight">{ad.title}</h3>
+               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusInfo.color}`}>
+                  {statusInfo.icon}
+                  {statusInfo.label}
+               </div>
+            </div>
             <p className="text-3xl font-black text-blue-600 mt-1">₹{ad.price?.toLocaleString()}</p>
           </div>
           <div className="flex gap-2">
@@ -268,6 +287,11 @@ function PremiumListingCard({ ad, onDelete }: any) {
           <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
             <FiMessageCircle className="text-indigo-500" /> {ad.chatCount || 0} <span className="hidden md:inline">Inquiries</span>
           </div>
+          {ad.status !== "active" && (
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 italic">
+               * Visible only to you while {ad.status}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

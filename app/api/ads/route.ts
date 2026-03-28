@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
       filter.category = category;
     }
 
-    // ✅ Always default to ACTIVE ads unless specified otherwise
-    filter.status = { $ne: "spam" }; 
+    // ✅ Only show active ads to the public
+    filter.status = "active";
 
     const ads = await Ad.find(filter)
       .populate("user", "name email")

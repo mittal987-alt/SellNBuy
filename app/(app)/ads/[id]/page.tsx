@@ -125,7 +125,7 @@ export default function AdDetailsPage() {
   if (!ad)
     return <div className="p-20 text-center font-bold">Listing not found.</div>;
 
-  const isOwner = user?.id === ad.user._id;
+  const isOwner = user?.id === ad?.user?._id;
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] pb-20">

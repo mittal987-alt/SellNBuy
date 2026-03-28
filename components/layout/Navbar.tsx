@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +17,8 @@ const FiSearch = dynamic(() => import("react-icons/fi").then((m) => m.FiSearch),
 const FiBell = dynamic(() => import("react-icons/fi").then((m) => m.FiBell), { ssr: false });
 const FiLogOut = dynamic(() => import("react-icons/fi").then((m) => m.FiLogOut), { ssr: false });
 const FiPlus = dynamic(() => import("react-icons/fi").then((m) => m.FiPlus), { ssr: false });
+const FiCamera = dynamic(() => import("react-icons/fi").then((m) => m.FiCamera), { ssr: false });
+const FiLoader = dynamic(() => import("react-icons/fi").then((m) => m.FiLoader), { ssr: false });
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -24,6 +26,8 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const user = useUserStore((s) => s.user);
   const clearUser = useUserStore((s) => s.clearUser);
@@ -40,12 +44,40 @@ export default function Navbar() {
     { title: "Messages", href: "/messages", icon: "FiMessageSquare" },
   ];
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsAnalyzing(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/analyze-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      
+      if (res.ok && data.category) {
+        router.push(`/nearby?category=${encodeURIComponent(data.category)}`);
+      } else {
+        alert(data.message || "Failed to analyze image");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error recognizing image");
+    } finally {
+      setIsAnalyzing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <header 
       className={clsx(
         "sticky top-0 z-[100] transition-all duration-500 w-full px-8 py-4",
-        // This ensures the navbar is NEVER pure white. 
-        // It uses a deep obsidian tint (bg-[#020617]) that gets darker as you scroll.
         scrolled 
           ? "bg-[#020617]/85 backdrop-blur-xl border-b border-white/20 shadow-2xl" 
           : "bg-[#020617]/90 backdrop-blur-md border-b border-white/5"
@@ -65,17 +97,33 @@ export default function Navbar() {
 
         {/* --- REFINED SEARCH BAR --- */}
         <form
-          onSubmit={(e) => { e.preventDefault(); router.push(`/search?q=${search}`); }}
-          className="hidden lg:flex flex-1 max-w-lg items-center bg-white/5 border border-white/10 rounded-2xl px-5 py-2.5 transition-all focus-within:border-blue-500 focus-within:bg-white/10"
+          onSubmit={(e) => { e.preventDefault(); router.push(`/nearby?search=${search}`); }}
+          className="hidden lg:flex flex-1 max-w-lg items-center relative bg-white/5 border border-white/10 rounded-2xl px-5 py-2.5 transition-all focus-within:border-blue-500 focus-within:bg-white/10"
         >
           <FiSearch className="text-slate-400 group-focus-within:text-blue-400" size={18} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search the marketplace..."
-            className="bg-transparent outline-none text-sm w-full ml-3 text-white placeholder-slate-500 font-medium"
+            className="bg-transparent outline-none text-sm w-full ml-3 pr-16 text-white placeholder-slate-500 font-medium"
           />
-          <kbd className="hidden xl:block text-[10px] font-black text-slate-500 bg-white/5 px-2 py-1 rounded">⌘ K</kbd>
+          <input 
+             type="file" 
+             accept="image/*" 
+             className="hidden" 
+             ref={fileInputRef}
+             onChange={handleImageUpload}
+          />
+          <button 
+             type="button"
+             onClick={() => fileInputRef.current?.click()}
+             disabled={isAnalyzing}
+             className="absolute right-12 text-slate-400 hover:text-blue-400 transition-colors"
+             title="Search by Object Image"
+          >
+             {isAnalyzing ? <FiLoader size={18} className="animate-spin" /> : <FiCamera size={18} />}
+          </button>
+          <kbd className="hidden xl:block absolute right-3 text-[10px] font-black text-slate-500 bg-white/5 px-2 py-1 rounded">⌘ K</kbd>
         </form>
 
         {/* --- NAVIGATION --- */}
